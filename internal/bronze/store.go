@@ -77,3 +77,15 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// List returns the keys of all objects under the given prefix, in key order.
+func (s *Store) List(ctx context.Context, prefix string) ([]string, error) {
+	var keys []string
+	for o := range s.client.ListObjects(ctx, s.bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+		if o.Err != nil {
+			return nil, fmt.Errorf("bronze: list %q: %w", prefix, o.Err)
+		}
+		keys = append(keys, o.Key)
+	}
+	return keys, nil
+}
