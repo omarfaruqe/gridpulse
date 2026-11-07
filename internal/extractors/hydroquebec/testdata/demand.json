@@ -1,0 +1,29 @@
+{
+  "dateStart" : "2026-11-06T00:00:00",
+  "dateEnd" : "2026-11-08T00:00:00",
+  "recentHour" : "2026-11-06T00:30:00",
+  "indexDonneePlusRecent" : 2,
+  "nbDateAvecData" : 3,
+  "details" : [ {
+    "date" : "2026-11-06T00:00:00",
+    "valeurs" : {
+      "demandeTotal" : 16172.0
+    }
+  }, {
+    "date" : "2026-11-06T00:15:00",
+    "valeurs" : {
+      "demandeTotal" : 16191.0
+    }
+  }, {
+    "date" : "2026-11-06T00:30:00",
+    "valeurs" : {
+      "demandeTotal" : 16039.0
+    }
+  }, {
+    "date" : "2026-11-06T00:45:00",
+    "valeurs" : { }
+  }, {
+    "date" : "2026-11-06T01:00:00",
+    "valeurs" : { }
+  } ]
+}
