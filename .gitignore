@@ -1,0 +1,20 @@
+# Go build output
+/bin/
+*.exe
+*.test
+*.out
+coverage.txt
+
+# Environment and secrets
+.env
+*.key
+
+# Local data (never commit raw or warehouse data)
+data/
+minio-data/
+pgdata/
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
