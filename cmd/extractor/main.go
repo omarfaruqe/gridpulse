@@ -20,6 +20,7 @@ import (
 
 type options struct {
 	source, report, date, from, to string
+	year, fromYear, toYear         int
 }
 
 func main() {
@@ -29,6 +30,9 @@ func main() {
 	flag.StringVar(&o.date, "date", "", "ieso: single data day YYYY-MM-DD (default: yesterday)")
 	flag.StringVar(&o.from, "from", "", "ieso backfill: first day YYYY-MM-DD (needs -to)")
 	flag.StringVar(&o.to, "to", "", "ieso backfill: last day YYYY-MM-DD (needs -from)")
+	flag.IntVar(&o.year, "year", 0, "ieso yearly reports (Demand): year (default: current year)")
+	flag.IntVar(&o.fromYear, "from-year", 0, "ieso yearly backfill: first year (needs -to-year)")
+	flag.IntVar(&o.toYear, "to-year", 0, "ieso yearly backfill: last year (needs -from-year)")
 	timeout := flag.Duration("timeout", 2*time.Minute, "overall run timeout")
 	list := flag.String("list", "", "list bronze keys under this prefix (e.g. source=hydroquebec_demand/) instead of extracting")
 	flag.Parse()
@@ -77,6 +81,10 @@ func run(ctx context.Context, log *slog.Logger, o options) error {
 func runIESO(ctx context.Context, log *slog.Logger, store *bronze.Store, o options) error {
 	ex := ieso.New(store)
 
+	if ieso.IsYearly(o.report) {
+		return runIESOYearly(ctx, log, ex, o)
+	}
+
 	if o.from != "" || o.to != "" {
 		from, err := parseDay(o.from)
 		if err != nil {
@@ -106,7 +114,29 @@ func runIESO(ctx context.Context, log *slog.Logger, store *bronze.Store, o optio
 	if err != nil {
 		return err
 	}
-	log.Info("extracted", "source", ieso.Source(o.report), "key", res.Key, "day", res.Day, "rows", res.Rows)
+	log.Info("extracted", "source", ieso.Source(o.report), "key", res.Key, "period", res.Period, "rows", res.Rows)
+	return nil
+}
+
+func runIESOYearly(ctx context.Context, log *slog.Logger, ex *ieso.Extractor, o options) error {
+	if o.fromYear != 0 || o.toYear != 0 {
+		stored, missing, err := ex.BackfillYears(ctx, o.report, o.fromYear, o.toYear)
+		log.Info("backfill finished", "report", o.report, "stored", len(stored), "missing", missing)
+		return err
+	}
+	year := o.year
+	if year == 0 {
+		year = time.Now().In(ieso.EST).Year()
+	}
+	res, err := ex.FetchYear(ctx, o.report, year)
+	if errors.Is(err, ieso.ErrNotPublished) {
+		log.Warn("report not published", "report", o.report, "year", year, "error", err)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	log.Info("extracted", "source", ieso.Source(o.report), "key", res.Key, "period", res.Period, "rows", res.Rows)
 	return nil
 }
 
