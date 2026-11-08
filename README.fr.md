@@ -69,6 +69,10 @@ La configuration passe par des variables d'environnement dont les valeurs par d�
 
 Pas encore inclus : les prix en temps réel de l'IESO (5 minutes), des pondérations de stations affinées, les données de contexte de la Régie de l'énergie du Canada. Les données ouvertes d'Hydro-Québec sont sous licence CC BY-NC 4.0; voir [docs/data-notes.md](docs/data-notes.md).
 
+## Licence
+
+Le code est sous licence MIT (voir `LICENSE`). Les données appartiennent à leurs fournisseurs et conservent leurs conditions; celles d'Hydro-Québec sont sous CC BY-NC 4.0.
+
 ## Limites
 
 Il s'agit d'un projet de portfolio, non d'un outil d'exploitation ou de négociation : l'API n'a pas d'authentification, les limites de fraîcheur suivent le rythme de publication plutôt qu'un niveau de service, et plusieurs écarts de réconciliation sont mesurés mais non expliqués. Ils sont listés, avec leur statut, dans [docs/data-notes.md](docs/data-notes.md).

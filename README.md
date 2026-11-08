@@ -69,6 +69,10 @@ Settings come from environment variables whose defaults match `docker-compose.ym
 
 Not included yet: IESO real-time 5-minute prices, refined station weights, Canada Energy Regulator context data. Hydro-Québec open data is CC BY-NC 4.0; see [docs/data-notes.md](docs/data-notes.md) for the licence note.
 
+## Licence
+
+The code is MIT licensed (see `LICENSE`). The data belongs to its providers and keeps their terms; Hydro-Québec's is CC BY-NC 4.0.
+
 ## Limits
 
 This is a portfolio project. It is not an operational or trading tool: the API has no authentication, the freshness limits are tuned to publication cadence rather than to a service level, and several reconciliation differences are measured but not explained. They are listed, with their status, in [docs/data-notes.md](docs/data-notes.md).
