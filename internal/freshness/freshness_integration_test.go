@@ -26,11 +26,11 @@ func TestCheck(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// Quebec: fresh (1 h old; limit 3 h). Ontario: stale (10 h old; limit 6 h).
+	// Quebec: fresh (1 h old; limit 3 h). Ontario: stale (40 h old; limit 36 h).
 	// Alberta: its newest row has a NULL value, so the series counts as having no data.
 	exec(`INSERT INTO gold.fact_hourly_load (province_code, hour_utc, load_mw, is_complete, source) VALUES
 	  ('QC', $1, 20000, true, 'x'), ('ON', $2, 15000, true, 'x'), ('AB', $3, NULL, false, 'x')`,
-		now.Add(-time.Hour), now.Add(-10*time.Hour), now.Add(-time.Hour))
+		now.Add(-time.Hour), now.Add(-40*time.Hour), now.Add(-time.Hour))
 	// Ontario day-ahead prices run ahead of the clock: negative lag, still fresh.
 	exec(`INSERT INTO gold.fact_hourly_price (province_code, hour_utc, price_cad_mwh, price_kind, source)
 	  VALUES ('ON', $1, 40, 'day_ahead_zonal', 'x')`, now.Add(14*time.Hour))

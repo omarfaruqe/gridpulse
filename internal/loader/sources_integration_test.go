@@ -63,6 +63,7 @@ const (
 	poolKey   = "source=aeso_poolprice/date=2026-11-06/PoolPrice_2026-11-06.json"
 	aesoLoad  = "source=aeso_albertainternalload/date=2026-11-06/AlbertaInternalLoad_2026-11-06.json"
 	ecccKey   = "source=eccc_climate_hourly/date=2026-11-06/7025251_2026-11-06.json"
+	fuelKey   = "source=ieso_genoutputbyfuelhourly/date=2026-11-08/PUB_GenOutputbyFuelHourly_2026_20261108T115056Z.xml"
 )
 
 func TestLoadGeneratorsPicksUpRevisedFileAtSameKey(t *testing.T) {
@@ -193,6 +194,7 @@ func TestLoadAllSourcesAndRerun(t *testing.T) {
 		poolKey:   fixture(t, "aeso", "testdata", "PoolPrice.json"),
 		aesoLoad:  fixture(t, "aeso", "testdata", "AlbertaInternalLoad.json"),
 		ecccKey:   fixture(t, "eccc", "testdata", "climate_hourly.json"),
+		fuelKey:   fixture(t, "ieso", "testdata", "GenOutputbyFuelHourly.xml"),
 	}}
 	for _, name := range SourceNames() {
 		if name == "hydroquebec" {
@@ -207,8 +209,8 @@ func TestLoadAllSourcesAndRerun(t *testing.T) {
 			t.Fatalf("%s second run = %+v, %v, want skipped", name, results, err)
 		}
 	}
-	if n := countRows(t, l, "staging.load_log"); n != 6 {
-		t.Errorf("load_log rows = %d, want 6", n)
+	if n := countRows(t, l, "staging.load_log"); n != 7 {
+		t.Errorf("load_log rows = %d, want 7", n)
 	}
 }
 
@@ -217,7 +219,41 @@ func TestUnknownSource(t *testing.T) {
 	if _, err := l.LoadAll(context.Background(), "nope", false); err == nil {
 		t.Error("expected an error for an unknown source")
 	}
-	if len(SourceNames()) != 7 {
-		t.Errorf("sources = %v, want 7", SourceNames())
+	if len(SourceNames()) != 8 {
+		t.Errorf("sources = %v, want 8", SourceNames())
+	}
+}
+
+func TestLoadIESOFuel(t *testing.T) {
+	ctx := context.Background()
+	original := fixture(t, "ieso", "testdata", "GenOutputbyFuelHourly.xml")
+	l := &Loader{Pool: dbtest.New(t), Bronze: memBronze{fuelKey: original}}
+
+	res, err := l.Load(ctx, "ieso-fuel", fuelKey, false)
+	if err != nil || res.Rows != 12 {
+		t.Fatalf("load = %+v, %v, want 12 rows", res, err)
+	}
+	hour1 := utc(2026, 1, 1, 5)
+	wantFloat(t, "nuclear hour 1", floatAt(t, l,
+		`SELECT output_mw FROM staging.ieso_fuel_hourly WHERE interval_start_utc = $1 AND fuel_type = 'NUCLEAR'`, hour1), 9602)
+	wantNull(t, "gas hour 2 (no Output published)", floatAt(t, l,
+		`SELECT output_mw FROM staging.ieso_fuel_hourly WHERE interval_start_utc = $1 AND fuel_type = 'GAS'`, utc(2026, 1, 1, 6)))
+	wantFloat(t, "gas hour 1 quality as published", floatAt(t, l,
+		`SELECT output_quality::float8 FROM staging.ieso_fuel_hourly WHERE interval_start_utc = $1 AND fuel_type = 'GAS'`, hour1), -1)
+	wantFloat(t, "gas hour 2 quality", floatAt(t, l,
+		`SELECT output_quality::float8 FROM staging.ieso_fuel_hourly WHERE interval_start_utc = $1 AND fuel_type = 'GAS'`, utc(2026, 1, 1, 6)), 3)
+
+	// An older snapshot with different numbers must not overwrite the newer data.
+	older := strings.NewReplacer("2026-11-08T06:50:56", "2026-11-07T06:50:56", "<Output>9602</Output>", "<Output>1</Output>").
+		Replace(string(original))
+	olderKey := "source=ieso_genoutputbyfuelhourly/date=2026-11-07/PUB_GenOutputbyFuelHourly_2026_20261107T115056Z.xml"
+	l.Bronze.(memBronze)[olderKey] = []byte(older)
+	if _, err := l.Load(ctx, "ieso-fuel", olderKey, false); err != nil {
+		t.Fatal(err)
+	}
+	wantFloat(t, "nuclear hour 1 after replaying an older file", floatAt(t, l,
+		`SELECT output_mw FROM staging.ieso_fuel_hourly WHERE interval_start_utc = $1 AND fuel_type = 'NUCLEAR'`, hour1), 9602)
+	if n := countRows(t, l, "staging.ieso_fuel_hourly"); n != 12 {
+		t.Errorf("rows = %d, want 12", n)
 	}
 }

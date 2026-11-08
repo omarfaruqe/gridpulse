@@ -13,6 +13,7 @@ var sources = map[string]source{
 	"hydroquebec":     {hydroquebec.Source, parseHydroQuebec},
 	"ieso-generation": {ieso.Source("GenOutputCapability"), parseGenerators},
 	"ieso-demand":     {ieso.Source("Demand"), parseIESODemand},
+	"ieso-fuel":       {ieso.Source("GenOutputbyFuelHourly"), parseIESOFuel},
 	"ieso-price":      {ieso.Source("DAHourlyOntarioZonalPrice"), parseDAPrice},
 	"aeso-price":      {aeso.Source("PoolPrice"), parsePoolPrice},
 	"aeso-load":       {aeso.Source("AlbertaInternalLoad"), parseAESOLoad},
@@ -214,6 +215,32 @@ func parseECCC(key string, data []byte) ([]statement, error) {
 			o.WindSpeed, nullable(o.WindSpeedFlag),
 			o.WindDirection, o.StationPressure, o.Visibility, o.PrecipAmount, key,
 		}})
+	}
+	return stmts, nil
+}
+
+const upsertFuelHour = `
+INSERT INTO staging.ieso_fuel_hourly (interval_start_utc, fuel_type, hour_ending, output_mw, output_quality, snapshot_utc, bronze_key)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (interval_start_utc, fuel_type) DO UPDATE SET
+    hour_ending    = EXCLUDED.hour_ending,
+    output_mw      = EXCLUDED.output_mw,
+    output_quality = EXCLUDED.output_quality,
+    snapshot_utc   = EXCLUDED.snapshot_utc,
+    bronze_key     = EXCLUDED.bronze_key,
+    loaded_at      = now()
+WHERE EXCLUDED.snapshot_utc >= staging.ieso_fuel_hourly.snapshot_utc`
+
+func parseIESOFuel(key string, data []byte) ([]statement, error) {
+	rows, created, err := ieso.ParseGenOutputbyFuelHourly(data)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := created.UTC()
+	stmts := make([]statement, 0, len(rows))
+	for _, r := range rows {
+		stmts = append(stmts, statement{upsertFuelHour,
+			[]any{r.IntervalStartUTC, r.Fuel, r.HourEnding, r.OutputMW, r.Quality, snapshot, key}})
 	}
 	return stmts, nil
 }

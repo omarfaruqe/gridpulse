@@ -32,10 +32,9 @@ func seed(t *testing.T, pool *pgxpool.Pool) {
 	 VALUES ('2026-11-06 05:00+00',1,16000,15000,now(),'k')`)
 	exec(t, pool, `INSERT INTO staging.aeso_load_hourly (interval_start_utc, load_mw, forecast_load_mw, bronze_key)
 	 VALUES ('2026-11-06 05:00+00',10000,10100,'k')`)
-	// Ontario generation: one of two gas generators did not report.
-	exec(t, pool, `INSERT INTO staging.ieso_generator_hourly (interval_start_utc, generator, fuel_type, hour_ending, energy_mw, bronze_key) VALUES
-	 ('2026-11-06 05:00+00','A','GAS',1,100,'k'), ('2026-11-06 05:00+00','B','GAS',1,NULL,'k'),
-	 ('2026-11-06 05:00+00','C','NUCLEAR',1,800,'k')`)
+	// Ontario generation by fuel: gas has no Output this hour.
+	exec(t, pool, `INSERT INTO staging.ieso_fuel_hourly (interval_start_utc, fuel_type, hour_ending, output_mw, output_quality, snapshot_utc, bronze_key) VALUES
+	 ('2026-11-06 05:00+00','GAS',1,NULL,3,now(),'k'), ('2026-11-06 05:00+00','NUCLEAR',1,800,0,now(),'k')`)
 	// Montreal (weight 0.84) and Quebec City (0.16).
 	exec(t, pool, `INSERT INTO staging.eccc_weather_hourly (climate_id, time_utc, station_name, province, temp, bronze_key) VALUES
 	 ('7025251','2026-11-06 05:00+00','MONTREAL','QC',-10,'k'), ('7016293','2026-11-06 05:00+00','QUEBEC','QC',10,'k'),
@@ -79,9 +78,13 @@ func TestBuildAndTests(t *testing.T) {
 
 	var gen *float64
 	var reporting, total int
-	q(`SELECT generation_mw, generators_reporting, generators_total, is_complete FROM gold.fact_generation_by_fuel WHERE fuel_type='GAS'`, &gen, &reporting, &total, &complete)
-	if !near(gen, 100) || reporting != 1 || total != 2 || complete {
-		t.Errorf("GAS = %v %d/%d complete=%v, want 100 1/2 false", gen, reporting, total, complete)
+	q(`SELECT generation_mw, is_complete FROM gold.fact_generation_by_fuel WHERE fuel_type='GAS'`, &gen, &complete)
+	if gen != nil || complete {
+		t.Errorf("GAS = %v complete=%v, want NULL false (no Output published)", gen, complete)
+	}
+	q(`SELECT generation_mw, is_complete FROM gold.fact_generation_by_fuel WHERE fuel_type='NUCLEAR'`, &gen, &complete)
+	if !near(gen, 800) || !complete {
+		t.Errorf("NUCLEAR = %v complete=%v, want 800 true", gen, complete)
 	}
 
 	var temp *float64
@@ -118,8 +121,8 @@ func TestDataQualityTestsCatchProblems(t *testing.T) {
 	// A negative load, a gap (05:00 and 08:00 present, 06:00-07:00 absent) and an unknown fuel.
 	exec(t, pool, `INSERT INTO staging.ieso_demand_hourly (interval_start_utc, hour_ending, market_demand_mw, ontario_demand_mw, snapshot_utc, bronze_key)
 	 VALUES ('2026-11-06 08:00+00',4,1,-5,now(),'k')`)
-	exec(t, pool, `INSERT INTO staging.ieso_generator_hourly (interval_start_utc, generator, fuel_type, hour_ending, energy_mw, bronze_key)
-	 VALUES ('2026-11-06 05:00+00','Z','FUSION',1,1,'k')`)
+	exec(t, pool, `INSERT INTO staging.ieso_fuel_hourly (interval_start_utc, fuel_type, hour_ending, output_mw, output_quality, snapshot_utc, bronze_key)
+	 VALUES ('2026-11-06 05:00+00','FUSION',1,1,0,now(),'k')`)
 
 	r := &Runner{Pool: pool, Files: sqlfiles.FS}
 	if err := r.Build(ctx); err != nil {

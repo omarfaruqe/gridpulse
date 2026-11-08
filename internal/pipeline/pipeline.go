@@ -87,7 +87,10 @@ func (p *Pipeline) Jobs() ([]scheduler.Job, error) {
 			return p.load(ctx, "hydroquebec", res.Key)
 		}},
 		{Name: "ieso-demand", Spec: "20 * * * *", Timeout: 3 * time.Minute, Run: func(ctx context.Context) error {
-			return p.iesoDemand(ctx, io)
+			return p.iesoYearly(ctx, io, "Demand", "ieso-demand")
+		}},
+		{Name: "ieso-fuel", Spec: "35 * * * *", Timeout: 5 * time.Minute, Run: func(ctx context.Context) error {
+			return p.iesoYearly(ctx, io, "GenOutputbyFuelHourly", "ieso-fuel")
 		}},
 		{Name: "ieso-generation", Spec: "25 * * * *", Timeout: 3 * time.Minute,
 			Run: p.iesoDaily(io, "GenOutputCapability", "ieso-generation", -1, 0)},
@@ -130,9 +133,10 @@ func (p *Pipeline) load(ctx context.Context, name, key string) error {
 	return nil
 }
 
-// iesoDemand fetches this year's file, and last year's during the first days of
-// January so the final hours of the old year are not left half-published.
-func (p *Pipeline) iesoDemand(ctx context.Context, ex *ieso.Extractor) error {
+// iesoYearly fetches this year's file of a yearly report, and last year's during
+// the first days of January so the final hours of the old year are not left
+// half-published.
+func (p *Pipeline) iesoYearly(ctx context.Context, ex *ieso.Extractor, report, loadName string) error {
 	now := p.Now().In(ieso.EST)
 	years := []int{now.Year()}
 	if now.Month() == time.January && now.Day() <= 7 {
@@ -140,16 +144,16 @@ func (p *Pipeline) iesoDemand(ctx context.Context, ex *ieso.Extractor) error {
 	}
 	var errs []error
 	for _, y := range years {
-		res, err := ex.FetchYear(ctx, "Demand", y)
+		res, err := ex.FetchYear(ctx, report, y)
 		if errors.Is(err, ieso.ErrNotPublished) {
-			p.Log.Info("report not published", "report", "Demand", "year", y)
+			p.Log.Info("report not published", "report", report, "year", y)
 			continue
 		}
 		if err != nil {
-			errs = append(errs, fmt.Errorf("Demand %d: %w", y, err))
+			errs = append(errs, fmt.Errorf("%s %d: %w", report, y, err))
 			continue
 		}
-		errs = append(errs, p.load(ctx, "ieso-demand", res.Key))
+		errs = append(errs, p.load(ctx, loadName, res.Key))
 	}
 	return errors.Join(errs...)
 }

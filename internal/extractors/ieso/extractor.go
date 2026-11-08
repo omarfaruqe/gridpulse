@@ -33,13 +33,22 @@ var validators = map[string]func([]byte) (int, error){
 	},
 }
 
-// yearlyValidators do the same for yearly CSV reports, and also return the
+// yearlyValidators do the same for yearly reports, and also return the
 // upstream "Created at" time used to name the bronze object.
 var yearlyValidators = map[string]func([]byte) (int, time.Time, error){
 	"Demand": func(b []byte) (int, time.Time, error) {
 		rows, created, err := ParseDemand(b)
 		return len(rows), created, err
 	},
+	"GenOutputbyFuelHourly": func(b []byte) (int, time.Time, error) {
+		rows, created, err := ParseGenOutputbyFuelHourly(b)
+		return len(rows), created, err
+	},
+}
+
+// yearlyFormats lists the yearly reports that are not CSV.
+var yearlyFormats = map[string]struct{ ext, contentType string }{
+	"GenOutputbyFuelHourly": {"xml", "application/xml"},
 }
 
 // IsYearly reports whether a report is published as one file per year.
@@ -118,7 +127,11 @@ func (e *Extractor) FetchYear(ctx context.Context, report string, year int) (Res
 	if !ok {
 		return Result{}, fmt.Errorf("ieso: unsupported yearly report %q", report)
 	}
-	body, err := e.download(ctx, fmt.Sprintf("%s/%s/PUB_%s_%d.csv", e.BaseURL, report, report, year))
+	ext, contentType := "csv", "text/csv"
+	if f, ok := yearlyFormats[report]; ok {
+		ext, contentType = f.ext, f.contentType
+	}
+	body, err := e.download(ctx, fmt.Sprintf("%s/%s/PUB_%s_%d.%s", e.BaseURL, report, report, year, ext))
 	if err != nil {
 		return Result{}, err
 	}
@@ -126,8 +139,8 @@ func (e *Extractor) FetchYear(ctx context.Context, report string, year int) (Res
 	if err != nil {
 		return Result{}, err
 	}
-	name := fmt.Sprintf("PUB_%s_%d_%s.csv", report, year, created.UTC().Format("20060102T150405Z"))
-	key, err := e.Store.Put(ctx, Source(report), created, name, "text/csv", body)
+	name := fmt.Sprintf("PUB_%s_%d_%s.%s", report, year, created.UTC().Format("20060102T150405Z"), ext)
+	key, err := e.Store.Put(ctx, Source(report), created, name, contentType, body)
 	if err != nil {
 		return Result{}, err
 	}

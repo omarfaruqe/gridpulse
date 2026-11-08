@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document docID="GenOutputbyFuelHourly" xmlns="http://www.ieso.ca/schema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<DocHeader>
+<DocTitle>Generator Output by Fuel Type Hourly Report</DocTitle>
+<DocRevision>1</DocRevision>
+<DocConfidentiality><DocConfClass>PUB</DocConfClass></DocConfidentiality>
+<CreatedAt>2026-11-08T06:50:56</CreatedAt>
+</DocHeader>
+<DocBody>
+<DeliveryYear>2026</DeliveryYear>
+<DailyData>
+<Day>2026-01-01</Day>
+<HourlyData>
+<Hour>1</Hour>
+<FuelTotal><Fuel>NUCLEAR</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>9602</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>GAS</Fuel><EnergyValue><OutputQuality>-1</OutputQuality><Output>3246</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>HYDRO</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>3137</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>WIND</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>3358</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>SOLAR</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>0</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>BIOFUEL</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>13</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>OTHER</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>0</Output></EnergyValue></FuelTotal>
+</HourlyData>
+<HourlyData>
+<Hour>2</Hour>
+<FuelTotal><Fuel>NUCLEAR</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>9597</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>GAS</Fuel><EnergyValue><OutputQuality>3</OutputQuality></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>WIND</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>3401</Output></EnergyValue></FuelTotal>
+</HourlyData>
+</DailyData>
+<DailyData>
+<Day>2026-01-02</Day>
+<HourlyData>
+<Hour>1</Hour>
+<FuelTotal><Fuel>NUCLEAR</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>9500</Output></EnergyValue></FuelTotal>
+<FuelTotal><Fuel>GAS</Fuel><EnergyValue><OutputQuality>0</OutputQuality><Output>3000</Output></EnergyValue></FuelTotal>
+</HourlyData>
+</DailyData>
+</DocBody>
+</Document>
