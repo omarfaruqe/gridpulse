@@ -30,10 +30,61 @@ jobs:
           fi
 
       - name: Vet
-        run: go vet ./...
+        run: go vet ./... && go vet -tags integration ./...
 
       - name: Build
         run: go build -v ./...
 
-      - name: Test
+      - name: Unit tests
         run: go test -race -count=1 ./...
+
+  # The integration tests need the same two services as development. The
+  # defaults in internal/config (Postgres on 5433, S3 on 8333) already match.
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: gridpulse
+          POSTGRES_PASSWORD: gridpulse-dev-secret
+          POSTGRES_DB: gridpulse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U gridpulse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Start the object store
+        run: |
+          docker run -d --name objectstore -p 8333:8333 -p 9333:9333 \
+            chrislusf/seaweedfs:latest server -dir=/data -s3 -s3.port=8333
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:8333 && curl -s -o /dev/null http://localhost:9333/cluster/status && exit 0
+            sleep 2
+          done
+          docker logs objectstore
+          exit 1
+
+      - name: Integration tests
+        run: go test -tags integration -race -count=1 ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check the Compose file
+        run: docker compose --profile app config --quiet
+
+      - name: Build the image
+        run: docker build -t gridpulse:ci .

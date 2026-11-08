@@ -7,6 +7,7 @@ services:
       - "9333:9333"
     volumes:
       - ./data/objectstore:/data
+    restart: unless-stopped
 
   postgres:
     image: postgres:17-alpine
@@ -23,3 +24,48 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # The services below run the pipeline itself. Start everything with
+  #   docker compose --profile app up -d --build
+  # Without the profile only the storage services start, for working on the host.
+  migrate:
+    profiles: ["app"]
+    build: .
+    command: ["/app/loader", "-migrate"]
+    environment: &app-env
+      GRIDPULSE_POSTGRES_DSN: postgres://${POSTGRES_USER:-gridpulse}:${POSTGRES_PASSWORD:-gridpulse-dev-secret}@postgres:5432/${POSTGRES_DB:-gridpulse}?sslmode=disable
+      GRIDPULSE_S3_ENDPOINT: objectstore:8333
+      GRIDPULSE_AESO_API_KEY: ${GRIDPULSE_AESO_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  scheduler:
+    profiles: ["app"]
+    build: .
+    command: ["/app/scheduler"]
+    environment: *app-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      objectstore:
+        condition: service_started
+    restart: unless-stopped
+
+  api:
+    profiles: ["app"]
+    build: .
+    command: ["/app/api", "-addr", ":8080"]
+    environment: *app-env
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app/api", "-healthcheck", "-addr", ":8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

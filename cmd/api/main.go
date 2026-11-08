@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,7 +22,11 @@ import (
 func main() {
 	addr := flag.String("addr", ":8080", "address to listen on")
 	grace := flag.Duration("grace", 15*time.Second, "how long in-flight requests may finish after a shutdown signal")
+	healthcheck := flag.Bool("healthcheck", false, "ask a running API on -addr whether it is healthy, then exit 0 or 1 (for container health checks)")
 	flag.Parse()
+	if *healthcheck {
+		os.Exit(probe(*addr))
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := config.LoadDotEnv(".env"); err != nil {
@@ -72,4 +77,21 @@ func run(ctx context.Context, log *slog.Logger, addr string, grace time.Duration
 		return err
 	}
 	return nil
+}
+
+// probe is the container health check: the final image has no curl or shell.
+func probe(addr string) int {
+	if strings.HasPrefix(addr, ":") {
+		addr = "127.0.0.1" + addr
+	}
+	client := http.Client{Timeout: 3 * time.Second}
+	res, err := client.Get("http://" + addr + "/api/v1/health")
+	if err != nil {
+		return 1
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
 }
