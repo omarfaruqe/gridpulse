@@ -1,0 +1,56 @@
+{{define "pipeline_body"}}
+<div id="pl" hx-get="/ui/pipeline" hx-trigger="every 30s" hx-swap="outerHTML">
+<p class="note">{{.T.pl_generated}} {{stampTime .H.GeneratedAt}}</p>
+
+<div class="cards">
+  <div class="stat {{if gt .H.Summary.StaleSeries 0}}bad{{else}}ok{{end}}"><b>{{.H.Summary.StaleSeries}}</b><span>{{.T.pl_stale_series}}</span></div>
+  <div class="stat {{if gt .H.Summary.FailingJobs 0}}bad{{else}}ok{{end}}"><b>{{.H.Summary.FailingJobs}}</b><span>{{.T.pl_failing_jobs}}</span></div>
+  <div class="stat {{if gt .H.Summary.FailingTests 0}}bad{{else}}ok{{end}}"><b>{{.H.Summary.FailingTests}}</b><span>{{.T.pl_failing_tests}}</span></div>
+</div>
+
+<h2>{{.T.pl_freshness}}</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>{{.T.pl_series}}</th><th>{{.T.pl_latest}}</th><th class="num">{{.T.pl_lag}}</th><th class="num">{{.T.pl_limit}}</th><th>{{.T.pl_status}}</th></tr></thead>
+  <tbody>
+  {{range .H.Freshness}}<tr>
+    <td>{{.Series}}</td>
+    <td>{{with .LatestHourUTC}}{{stampTime .}}{{else}}—{{end}}</td>
+    <td class="num">{{with .LagSeconds}}{{dur .}}{{else}}—{{end}}</td>
+    <td class="num">{{dur .MaxLagSeconds}}</td>
+    <td>{{if .Stale}}<span class="pill bad">▲ {{$.T.pl_stale}}</span>{{else}}<span class="pill ok">● {{$.T.pl_fresh}}</span>{{end}}</td>
+  </tr>{{end}}
+  </tbody>
+</table></div>
+<p class="note">{{.T.pl_ahead_note}}</p>
+
+<h2>{{.T.pl_jobs}}</h2>
+{{if .H.Jobs}}<div class="table-wrap"><table>
+  <thead><tr><th>{{.T.pl_job}}</th><th>{{.T.pl_last_status}}</th><th>{{.T.pl_started}}</th><th>{{.T.pl_finished}}</th><th>{{.T.pl_last_success}}</th><th class="num">{{.T.pl_runs}}</th><th class="num">{{.T.pl_failures}}</th><th>{{.T.pl_error}}</th></tr></thead>
+  <tbody>
+  {{range .H.Jobs}}<tr>
+    <td>{{.Job}}</td>
+    <td>{{if eq .LastStatus "failed"}}<span class="pill bad">▲ {{.LastStatus}}</span>{{else}}<span class="pill ok">● {{.LastStatus}}</span>{{end}}</td>
+    <td>{{stamp .LastStartedAt}}</td>
+    <td>{{with .LastFinishedAt}}{{stamp .}}{{else}}—{{end}}</td>
+    <td>{{with .LastSuccessAt}}{{stamp .}}{{else}}—{{end}}</td>
+    <td class="num">{{.Runs24h}}</td>
+    <td class="num">{{.Failures24h}}</td>
+    <td class="err">{{with .LastError}}{{.}}{{end}}</td>
+  </tr>{{end}}
+  </tbody>
+</table></div>{{else}}<p class="note">{{.T.pl_none}}</p>{{end}}
+
+<h2>{{.T.pl_quality}}</h2>
+{{if .H.Quality}}<div class="table-wrap"><table>
+  <thead><tr><th>{{.T.pl_test}}</th><th>{{.T.pl_status}}</th><th class="num">{{.T.pl_violations}}</th><th>{{.T.pl_checked}}</th></tr></thead>
+  <tbody>
+  {{range .H.Quality}}<tr>
+    <td>{{.Test}}</td>
+    <td>{{if gt .Violations 0}}<span class="pill bad">▲ {{$.T.pl_fail}}</span>{{else}}<span class="pill ok">● {{$.T.pl_pass}}</span>{{end}}</td>
+    <td class="num">{{.Violations}}</td>
+    <td>{{stamp .CheckedAt}}</td>
+  </tr>{{end}}
+  </tbody>
+</table></div>{{else}}<p class="note">{{.T.pl_none}}</p>{{end}}
+</div>
+{{end}}

@@ -1,0 +1,52 @@
+{{define "content"}}
+<nav class="controls" aria-label="{{.T.province}}">
+  <div class="seg" role="group" aria-label="{{.T.province}}">
+    {{range .Provinces}}<a href="{{.URL}}"{{if .Selected}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}
+  </div>
+  <div class="seg" role="group" aria-label="{{.T.range}}">
+    {{range .Ranges}}<a href="{{.URL}}"{{if .Selected}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}
+  </div>
+</nav>
+
+<div class="grid">
+  <section class="card wide">
+    <h2>{{.T.load_title}} — {{.ProvinceName}}</h2>
+    <div class="plot"><canvas data-chart="load" data-url="{{.LoadURL}}" data-ylabel="{{.T.load_y}}" role="img" aria-label="{{.T.load_title}}"></canvas></div>
+    <p class="empty" hidden>{{.T.no_data}}</p>
+  </section>
+
+  <section class="card wide">
+    <h2>{{.T.gen_title}} — {{.ProvinceName}}</h2>
+    {{if .HasGen}}
+    <div class="plot"><canvas data-chart="generation" data-url="{{.GenURL}}" data-ylabel="{{.T.gen_y}}" role="img" aria-label="{{.T.gen_title}}"></canvas></div>
+    <p class="empty" hidden>{{.T.no_data}}</p>
+    {{else}}<p class="note">{{.T.gen_only}}</p>{{end}}
+  </section>
+
+  <section class="card">
+    <h2>{{.T.price_title}} — {{.ProvinceName}}</h2>
+    {{if .HasPrice}}
+    <div class="plot"><canvas data-chart="price" data-url="{{.PriceURL}}" data-ylabel="{{.T.price_y}}" role="img" aria-label="{{.T.price_title}}"></canvas></div>
+    <p class="empty" hidden>{{.T.no_data}}</p>
+    {{else}}<p class="note">{{.T.price_none}}</p>{{end}}
+  </section>
+
+  <section class="card">
+    <h2>{{.T.sc_title}} — {{.ProvinceName}}</h2>
+    <div class="plot"><canvas data-chart="scatter" data-url="{{.ScatterURL}}" data-xlabel="{{.T.sc_x}}" data-ylabel="{{.T.sc_y}}" role="img" aria-label="{{.T.sc_title}}"></canvas></div>
+    <p class="empty" hidden>{{.T.no_data}}</p>
+  </section>
+
+  <section class="card wide">
+    <h2>{{.T.recon_title}}</h2>
+    <div class="plot"><canvas data-chart="recon" data-url="/api/v1/reconciliation" data-ylabel="{{.T.recon_y}}" role="img" aria-label="{{.T.recon_title}}"></canvas></div>
+    <p class="empty" hidden>{{.T.no_data}}</p>
+    <p class="note">{{.T.recon_note}}</p>
+  </section>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script src="/static/chart.umd.min.js"></script>
+<script src="/static/app.js"></script>
+{{end}}

@@ -15,6 +15,7 @@ import (
 	"github.com/omarfaruqe/gridpulse/internal/api"
 	"github.com/omarfaruqe/gridpulse/internal/config"
 	"github.com/omarfaruqe/gridpulse/internal/db"
+	"github.com/omarfaruqe/gridpulse/internal/web"
 )
 
 func main() {
@@ -42,9 +43,14 @@ func run(ctx context.Context, log *slog.Logger, addr string, grace time.Duration
 	}
 	defer pool.Close()
 
+	service := api.New(pool, log)
+	site, err := web.New(service, log)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.New(pool, log).Handler(),
+		Handler:           site.Handler(service.Handler()),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      30 * time.Second,

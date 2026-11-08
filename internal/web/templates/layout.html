@@ -1,0 +1,27 @@
+{{define "layout"}}<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>
+<title>GridPulse</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">GridPulse</a>
+  <span class="tagline">{{.T.tagline}}</span>
+  <nav>
+    <a href="/"{{if eq .Active "dashboard"}} aria-current="page"{{end}}>{{.T.nav_dash}}</a>
+    <a href="/pipeline"{{if eq .Active "pipeline"}} aria-current="page"{{end}}>{{.T.nav_pipeline}}</a>
+    <a class="lang" href="{{.SwitchURL}}" hreflang="{{.SwitchTo}}" lang="{{.SwitchTo}}">{{.SwitchTo}}</a>
+  </nav>
+</header>
+<main>
+{{template "content" .}}
+</main>
+<footer>{{.T.footer}}</footer>
+<script src="/static/htmx.min.js"></script>
+{{block "scripts" .}}{{end}}
+</body>
+</html>{{end}}
