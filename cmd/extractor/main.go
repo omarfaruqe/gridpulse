@@ -14,6 +14,7 @@ import (
 
 	"github.com/omarfaruqe/gridpulse/internal/bronze"
 	"github.com/omarfaruqe/gridpulse/internal/config"
+	"github.com/omarfaruqe/gridpulse/internal/extractors/aeso"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/hydroquebec"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/ieso"
 )
@@ -25,8 +26,8 @@ type options struct {
 
 func main() {
 	var o options
-	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso)")
-	flag.StringVar(&o.report, "report", "GenOutputCapability", "ieso: report name")
+	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso, aeso)")
+	flag.StringVar(&o.report, "report", "GenOutputCapability", "report name (ieso: GenOutputCapability, Demand, DAHourlyOntarioZonalPrice; aeso: PoolPrice, AlbertaInternalLoad)")
 	flag.StringVar(&o.date, "date", "", "ieso: single data day YYYY-MM-DD (default: yesterday)")
 	flag.StringVar(&o.from, "from", "", "ieso backfill: first day YYYY-MM-DD (needs -to)")
 	flag.StringVar(&o.to, "to", "", "ieso backfill: last day YYYY-MM-DD (needs -from)")
@@ -38,6 +39,10 @@ func main() {
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	if err := config.LoadDotEnv(".env"); err != nil {
+		log.Warn("could not read .env", "error", err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -57,7 +62,8 @@ func main() {
 }
 
 func run(ctx context.Context, log *slog.Logger, o options) error {
-	store, err := bronze.New(ctx, config.Load())
+	cfg := config.Load()
+	store, err := bronze.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -73,8 +79,10 @@ func run(ctx context.Context, log *slog.Logger, o options) error {
 		return nil
 	case "ieso":
 		return runIESO(ctx, log, store, o)
+	case "aeso":
+		return runAESO(ctx, log, store, cfg, o)
 	default:
-		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec, ieso)", o.source)
+		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec, ieso, aeso)", o.source)
 	}
 }
 
@@ -137,6 +145,41 @@ func runIESOYearly(ctx context.Context, log *slog.Logger, ex *ieso.Extractor, o 
 		return err
 	}
 	log.Info("extracted", "source", ieso.Source(o.report), "key", res.Key, "period", res.Period, "rows", res.Rows)
+	return nil
+}
+
+func runAESO(ctx context.Context, log *slog.Logger, store *bronze.Store, cfg config.Config, o options) error {
+	ex, err := aeso.New(store, cfg.AESOAPIKey)
+	if err != nil {
+		return err
+	}
+
+	if o.from != "" || o.to != "" {
+		from, err := parseDay(o.from)
+		if err != nil {
+			return fmt.Errorf("-from: %w", err)
+		}
+		to, err := parseDay(o.to)
+		if err != nil {
+			return fmt.Errorf("-to: %w", err)
+		}
+		stored, err := ex.Backfill(ctx, o.report, from, to)
+		log.Info("backfill finished", "report", o.report, "stored", len(stored))
+		return err
+	}
+
+	day := time.Now().In(aeso.Mountain).AddDate(0, 0, -1) // Alberta data days
+	if o.date != "" {
+		var err error
+		if day, err = parseDay(o.date); err != nil {
+			return fmt.Errorf("-date: %w", err)
+		}
+	}
+	res, err := ex.FetchDay(ctx, o.report, day)
+	if err != nil {
+		return err
+	}
+	log.Info("extracted", "source", aeso.Source(o.report), "key", res.Key, "day", res.Day, "rows", res.Rows)
 	return nil
 }
 

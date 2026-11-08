@@ -15,6 +15,8 @@ type Config struct {
 	S3UseSSL    bool
 
 	PostgresDSN string
+
+	AESOAPIKey string // secret: never log this
 }
 
 // Load reads configuration from the environment. Defaults match the local
@@ -26,6 +28,7 @@ func Load() Config {
 		S3AccessKey: getenv("GRIDPULSE_S3_ACCESS_KEY", "gridpulse"),
 		S3SecretKey: getenv("GRIDPULSE_S3_SECRET_KEY", "gridpulse-dev-secret"),
 		S3UseSSL:    getenv("GRIDPULSE_S3_USE_SSL", "false") == "true",
+		AESOAPIKey:  getenv("GRIDPULSE_AESO_API_KEY", ""),
 		PostgresDSN: getenv("GRIDPULSE_POSTGRES_DSN", fmt.Sprintf(
 			"postgres://%s:%s@localhost:5432/%s?sslmode=disable",
 			getenv("POSTGRES_USER", "gridpulse"),
