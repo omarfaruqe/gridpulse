@@ -3,11 +3,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"slices"
 	"syscall"
 	"time"
 
@@ -18,7 +20,7 @@ import (
 )
 
 func main() {
-	source := flag.String("source", "", "source to load (hydroquebec)")
+	source := flag.String("source", "", "source to load, or \"all\" (see the list in the error message for an unknown name)")
 	migrateOnly := flag.Bool("migrate", false, "apply database migrations and exit")
 	force := flag.Bool("force", false, "reload files that were already loaded")
 	timeout := flag.Duration("timeout", 5*time.Minute, "overall run timeout")
@@ -63,9 +65,16 @@ func run(ctx context.Context, log *slog.Logger, source string, migrateOnly, forc
 	}
 	l := &loader.Loader{Pool: pool, Bronze: store}
 
-	switch source {
-	case "hydroquebec":
-		results, err := l.LoadAllHydroQuebec(ctx, force)
+	names := []string{source}
+	if source == "all" {
+		names = loader.SourceNames()
+	} else if !slices.Contains(loader.SourceNames(), source) {
+		return fmt.Errorf("unknown or missing -source %q (available: all, %v)", source, loader.SourceNames())
+	}
+
+	var errs []error
+	for _, name := range names {
+		results, err := l.LoadAll(ctx, name, force)
 		var loaded, skipped, rows int
 		for _, r := range results {
 			if r.Skipped {
@@ -75,9 +84,10 @@ func run(ctx context.Context, log *slog.Logger, source string, migrateOnly, forc
 			loaded++
 			rows += r.Rows
 		}
-		log.Info("load finished", "source", source, "files_loaded", loaded, "files_skipped", skipped, "rows", rows)
-		return err
-	default:
-		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec)", source)
+		log.Info("load finished", "source", name, "files_loaded", loaded, "files_skipped", skipped, "rows", rows)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", name, err))
+		}
 	}
+	return errors.Join(errs...)
 }
