@@ -2,7 +2,7 @@
 
 A pipeline that ingests hourly electricity data from Canadian grid operators, joins it with Environment and Climate Change Canada weather observations, and serves a tested analytical warehouse through an API and dashboard. Written in Go.
 
-**Status:** extractors for Hydro-Québec, IESO and AESO are done and write idempotent, backfillable raw files to bronze. Next: ECCC weather, then Postgres loading with silver and gold models.
+**Status:** extractors for Hydro-Québec, IESO, AESO and ECCC weather are done and write idempotent, backfillable raw files to bronze. Next: Postgres loading with silver and gold models.
 
 ## Architecture
 
@@ -35,6 +35,9 @@ go build -o bin/extractor ./cmd/extractor
 # AESO (Alberta): needs a free API key in .env
 ./bin/extractor -source aeso -report PoolPrice -from 2026-11-01 -to 2026-11-07
 ./bin/extractor -source aeso -report AlbertaInternalLoad -date 2026-11-06
+
+# ECCC weather: one file per station per UTC day
+./bin/extractor -source eccc -from 2026-11-05 -to 2026-11-06
 ```
 
 Optional integration test against the running object store:
@@ -53,7 +56,7 @@ Settings come from environment variables (defaults match `docker-compose.yml`): 
 | IESO: generator output by fuel, hourly demand, day-ahead zonal price | Done |
 | IESO: real-time 5-minute zonal price (hourly files) | Planned |
 | AESO: pool price, Alberta internal load | Done |
-| ECCC weather observations | Sprint 3 |
+| ECCC hourly weather (6 stations mapped to the 3 grid regions) | Done |
 | Statistics Canada reconciliation | Sprint 6 |
 
 Hydro-Québec open data is published under CC BY-NC 4.0. It is raw data without a quality guarantee, and timestamps in the feed are Eastern local time without an offset.
@@ -67,5 +70,18 @@ Every source uses a different clock, so conversion to UTC is explicit and tested
 | Hydro-Québec | Eastern local time, no offset | The repeated hour when clocks fall back is flagged `ambiguous`; the skipped hour when they spring forward is flagged `nonexistent` |
 | IESO | Fixed EST (UTC-5) all year, hour-ending | Hour N starts at N-1 o'clock EST; no daylight saving shifts |
 | AESO | UTC (`begin_datetime_utc`) | The local `begin_datetime_mpt` field is ignored: Alberta moved to year-round UTC-6 ("Alberta Time") on 2026-11-01, so history spans two time rule sets and UTC avoids the issue |
+| ECCC weather | UTC (`UTC_DATE`) and local time | Requests use the `UTC_YEAR`/`UTC_MONTH`/`UTC_DAY` filters. The API's `datetime` filter matches the **local** clock, so a UTC window built with it silently shifts hours between days |
 
 Empty values in source files are kept as nulls, never zero.
+
+## Weather stations
+
+Each grid region is represented by one or two ECCC hourly stations (`internal/extractors/eccc/stations.json`), with weights for combining them. A validator checks each region's weights sum to 1.
+
+| Region (operator) | Stations | Weight |
+|---|---|---|
+| QC (Hydro-Québec) | Montréal Intl A, Québec Intl A | 0.84 / 0.16 |
+| ON (IESO) | Toronto Intl A, Ottawa Intl A | 0.85 / 0.15 |
+| AB (AESO) | Calgary Intl A, Edmonton Intl A | 0.51 / 0.49 |
+
+The weights are approximate metro-population shares and should be refined with Statistics Canada census data. Station identifiers change when ECCC replaces equipment: the long-running Montréal airport ID `7025250` stopped reporting in 2013, and the current one is `7025251`. The archive trails real time by about a day, so each daily run should re-fetch recent days; re-fetching replaces the same bronze object.

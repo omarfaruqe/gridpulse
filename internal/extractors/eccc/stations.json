@@ -1,0 +1,8 @@
+[
+  {"climate_id": "7025251", "name": "MONTREAL INTL A", "province": "QC", "region": "QC", "operator": "hydroquebec", "weight": 0.84},
+  {"climate_id": "7016293", "name": "QUEBEC INTL A", "province": "QC", "region": "QC", "operator": "hydroquebec", "weight": 0.16},
+  {"climate_id": "6158731", "name": "TORONTO INTL A", "province": "ON", "region": "ON", "operator": "ieso", "weight": 0.85},
+  {"climate_id": "6106001", "name": "OTTAWA INTL A", "province": "ON", "region": "ON", "operator": "ieso", "weight": 0.15},
+  {"climate_id": "3031092", "name": "CALGARY INTL A", "province": "AB", "region": "AB", "operator": "aeso", "weight": 0.51},
+  {"climate_id": "3012216", "name": "EDMONTON INTL A", "province": "AB", "region": "AB", "operator": "aeso", "weight": 0.49}
+]

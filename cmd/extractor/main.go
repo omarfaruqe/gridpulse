@@ -15,6 +15,7 @@ import (
 	"github.com/omarfaruqe/gridpulse/internal/bronze"
 	"github.com/omarfaruqe/gridpulse/internal/config"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/aeso"
+	"github.com/omarfaruqe/gridpulse/internal/extractors/eccc"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/hydroquebec"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/ieso"
 )
@@ -26,9 +27,9 @@ type options struct {
 
 func main() {
 	var o options
-	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso, aeso)")
+	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso, aeso, eccc)")
 	flag.StringVar(&o.report, "report", "GenOutputCapability", "report name (ieso: GenOutputCapability, Demand, DAHourlyOntarioZonalPrice; aeso: PoolPrice, AlbertaInternalLoad)")
-	flag.StringVar(&o.date, "date", "", "ieso: single data day YYYY-MM-DD (default: yesterday)")
+	flag.StringVar(&o.date, "date", "", "single data day YYYY-MM-DD (default: yesterday)")
 	flag.StringVar(&o.from, "from", "", "ieso backfill: first day YYYY-MM-DD (needs -to)")
 	flag.StringVar(&o.to, "to", "", "ieso backfill: last day YYYY-MM-DD (needs -from)")
 	flag.IntVar(&o.year, "year", 0, "ieso yearly reports (Demand): year (default: current year)")
@@ -81,8 +82,10 @@ func run(ctx context.Context, log *slog.Logger, o options) error {
 		return runIESO(ctx, log, store, o)
 	case "aeso":
 		return runAESO(ctx, log, store, cfg, o)
+	case "eccc":
+		return runECCC(ctx, log, store, o)
 	default:
-		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec, ieso, aeso)", o.source)
+		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec, ieso, aeso, eccc)", o.source)
 	}
 }
 
@@ -181,6 +184,38 @@ func runAESO(ctx context.Context, log *slog.Logger, store *bronze.Store, cfg con
 	}
 	log.Info("extracted", "source", aeso.Source(o.report), "key", res.Key, "day", res.Day, "rows", res.Rows)
 	return nil
+}
+
+func runECCC(ctx context.Context, log *slog.Logger, store *bronze.Store, o options) error {
+	ex, err := eccc.New(store)
+	if err != nil {
+		return err
+	}
+
+	if o.from != "" || o.to != "" {
+		from, err := parseDay(o.from)
+		if err != nil {
+			return fmt.Errorf("-from: %w", err)
+		}
+		to, err := parseDay(o.to)
+		if err != nil {
+			return fmt.Errorf("-to: %w", err)
+		}
+		stored, missing, err := ex.Backfill(ctx, from, to)
+		log.Info("backfill finished", "source", eccc.Source, "stored", len(stored), "missing", missing)
+		return err
+	}
+
+	day := time.Now().UTC().AddDate(0, 0, -1) // ECCC trails real time by about a day
+	if o.date != "" {
+		var err error
+		if day, err = parseDay(o.date); err != nil {
+			return fmt.Errorf("-date: %w", err)
+		}
+	}
+	stored, missing, err := ex.FetchDay(ctx, day)
+	log.Info("extracted", "source", eccc.Source, "day", day.Format("2006-01-02"), "stored", len(stored), "missing", missing)
+	return err
 }
 
 func parseDay(s string) (time.Time, error) {
