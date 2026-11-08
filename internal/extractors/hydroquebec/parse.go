@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 	_ "time/tzdata" // embed tz database so containers without tzdata still work
+
+	"github.com/omarfaruqe/gridpulse/internal/timeutil"
 )
 
 // Source is the bronze partition name for this feed.
@@ -37,6 +39,10 @@ type Observation struct {
 	LocalTime string    // raw timestamp from the feed (Eastern, no offset)
 	TimeUTC   time.Time // LocalTime interpreted as America/Toronto, in UTC
 	DemandMW  *float64  // nil for slots that have no value yet
+
+	// Resolution is Ambiguous for the repeated hour when clocks fall back and
+	// Nonexistent for the skipped hour when they spring forward.
+	Resolution timeutil.Resolution
 }
 
 // Parse decodes a raw feed snapshot. It does not modify the raw bytes.
@@ -50,11 +56,12 @@ func Parse(data []byte) ([]Observation, error) {
 	}
 	obs := make([]Observation, 0, len(f.Details))
 	for _, d := range f.Details {
-		t, err := time.ParseInLocation(localLayout, d.Date, eastern)
+		wall, err := time.Parse(localLayout, d.Date) // wall clock in UTC fields
 		if err != nil {
 			return nil, fmt.Errorf("hydroquebec: bad timestamp %q: %w", d.Date, err)
 		}
-		obs = append(obs, Observation{LocalTime: d.Date, TimeUTC: t.UTC(), DemandMW: d.Valeurs.DemandeTotal})
+		utc, res := timeutil.LocalToUTC(eastern, wall)
+		obs = append(obs, Observation{LocalTime: d.Date, TimeUTC: utc, DemandMW: d.Valeurs.DemandeTotal, Resolution: res})
 	}
 	return obs, nil
 }

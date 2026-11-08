@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/omarfaruqe/gridpulse/internal/bronze"
+	"github.com/omarfaruqe/gridpulse/internal/timeutil"
 )
 
 func loadFixture(t *testing.T) []byte {
@@ -119,5 +120,31 @@ func TestRunFailsAfterRetries(t *testing.T) {
 	}
 	if len(store.objects) != 0 {
 		t.Error("nothing should be stored on failure")
+	}
+}
+
+func TestParseFlagsDaylightSavingEdges(t *testing.T) {
+	feed := `{"details":[
+		{"date":"2026-11-01T00:30:00","valeurs":{"demandeTotal":1}},
+		{"date":"2026-11-01T01:30:00","valeurs":{"demandeTotal":2}},
+		{"date":"2026-11-01T02:30:00","valeurs":{"demandeTotal":3}},
+		{"date":"2026-03-08T02:30:00","valeurs":{"demandeTotal":4}}]}`
+	obs, err := Parse([]byte(feed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []struct {
+		utc time.Time
+		res timeutil.Resolution
+	}{
+		{time.Date(2026, 11, 1, 4, 30, 0, 0, time.UTC), timeutil.Unique},
+		{time.Date(2026, 11, 1, 5, 30, 0, 0, time.UTC), timeutil.Ambiguous},
+		{time.Date(2026, 11, 1, 7, 30, 0, 0, time.UTC), timeutil.Unique},
+		{time.Date(2026, 3, 8, 7, 30, 0, 0, time.UTC), timeutil.Nonexistent},
+	}
+	for i, w := range want {
+		if !obs[i].TimeUTC.Equal(w.utc) || obs[i].Resolution != w.res {
+			t.Errorf("obs[%d] = %v (%v), want %v (%v)", i, obs[i].TimeUTC, obs[i].Resolution, w.utc, w.res)
+		}
 	}
 }

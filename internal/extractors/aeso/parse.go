@@ -46,7 +46,8 @@ func decodeRows(data []byte, key string, rows any) error {
 }
 
 // parseStartUTC reads begin_datetime_utc. The begin_datetime_mpt field is
-// deliberately ignored: it disagrees with Alberta's real UTC offset.
+// deliberately ignored: UTC is unambiguous, while Alberta's local rules changed
+// on 2026-11-01 (Alberta Time, UTC-6 all year), so history spans two rule sets.
 func parseStartUTC(s string) (time.Time, error) {
 	t, err := time.ParseInLocation("2006-01-02 15:04", strings.TrimSpace(s), time.UTC)
 	if err != nil {
