@@ -21,7 +21,7 @@ Design rules: extractors are idempotent (same upstream version gives the same ob
 Requirements: Go (see `go.mod`), Docker with Compose.
 
 ```sh
-docker compose up -d                      # SeaweedFS (S3 on :8333) and Postgres (:5432)
+docker compose up -d                      # SeaweedFS (S3 on :8333) and Postgres (:5433)
 go test ./...                             # unit tests
 go build -o bin/extractor ./cmd/extractor
 ./bin/extractor -source hydroquebec       # fetch the live feed into bronze

@@ -148,3 +148,18 @@ func TestParseFlagsDaylightSavingEdges(t *testing.T) {
 		}
 	}
 }
+
+func TestSnapshotFromKey(t *testing.T) {
+	got, err := SnapshotFromKey("source=hydroquebec_demand/date=2026-11-07/demand_20261107T224634Z.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 11, 7, 22, 46, 34, 0, time.UTC); !got.Equal(want) {
+		t.Errorf("snapshot = %v, want %v", got, want)
+	}
+	for _, bad := range []string{"source=x/date=2026-11-07/other.json", "demand_notatime.json", "demand_20261107T224634Z.csv"} {
+		if _, err := SnapshotFromKey(bad); err == nil {
+			t.Errorf("%q: expected error", bad)
+		}
+	}
+}

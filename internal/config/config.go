@@ -30,7 +30,7 @@ func Load() Config {
 		S3UseSSL:    getenv("GRIDPULSE_S3_USE_SSL", "false") == "true",
 		AESOAPIKey:  getenv("GRIDPULSE_AESO_API_KEY", ""),
 		PostgresDSN: getenv("GRIDPULSE_POSTGRES_DSN", fmt.Sprintf(
-			"postgres://%s:%s@localhost:5432/%s?sslmode=disable",
+			"postgres://%s:%s@localhost:5433/%s?sslmode=disable",
 			getenv("POSTGRES_USER", "gridpulse"),
 			getenv("POSTGRES_PASSWORD", "gridpulse-dev-secret"),
 			getenv("POSTGRES_DB", "gridpulse"),
