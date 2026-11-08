@@ -1,0 +1,6 @@
+﻿"REF_DATE","GEO","DGUID","Class of electricity producer","Type of electricity generation","UOM","UOM_ID","SCALAR_FACTOR","SCALAR_ID","VECTOR","COORDINATE","VALUE","STATUS","SYMBOL","TERMINATED","DECIMALS"
+"2026-08","Canada","2016A000011124","Total all classes of electricity producer","Total all types of electricity generation","Megawatt hours","210","units","0","v44174609","1.1.1","60000000","","","","0"
+"2026-08","Ontario","2016A000235","Total all classes of electricity producer","Hydraulic turbine","Megawatt hours","210","units","0","v44174770","7.1.2","2400000","","","","0"
+"2026-08","Ontario","2016A000235","Electricity producers, industries","Conventional steam turbine","Megawatt hours","210","units","0","v44174785","7.3.3","","..","","","0"
+"2026-07","Quebec","2016A000224","Total all classes of electricity producer","Hydraulic turbine","Megawatt hours","210","units","0","v44174100","5.1.2","17000000","","","","0"
+"2026-08","Alberta","2016A000248","Total all classes of electricity producer","Wind power turbine","Megawatt hours","210","units","0","v44174400","6.1.8","600000","E","","","0"

@@ -18,6 +18,7 @@ import (
 	"github.com/omarfaruqe/gridpulse/internal/extractors/eccc"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/hydroquebec"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/ieso"
+	"github.com/omarfaruqe/gridpulse/internal/extractors/statcan"
 )
 
 type options struct {
@@ -27,7 +28,7 @@ type options struct {
 
 func main() {
 	var o options
-	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso, aeso, eccc)")
+	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso, aeso, eccc, statcan)")
 	flag.StringVar(&o.report, "report", "GenOutputCapability", "report name (ieso: GenOutputCapability, Demand, DAHourlyOntarioZonalPrice; aeso: PoolPrice, AlbertaInternalLoad)")
 	flag.StringVar(&o.date, "date", "", "single data day YYYY-MM-DD (default: yesterday)")
 	flag.StringVar(&o.from, "from", "", "ieso backfill: first day YYYY-MM-DD (needs -to)")
@@ -84,8 +85,15 @@ func run(ctx context.Context, log *slog.Logger, o options) error {
 		return runAESO(ctx, log, store, cfg, o)
 	case "eccc":
 		return runECCC(ctx, log, store, o)
+	case "statcan":
+		res, err := statcan.New(store).FetchGeneration(ctx)
+		if err != nil {
+			return err
+		}
+		log.Info("extracted", "source", statcan.Source, "key", res.Key, "rows", res.Rows)
+		return nil
 	default:
-		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec, ieso, aeso, eccc)", o.source)
+		return fmt.Errorf("unknown or missing -source %q (available: hydroquebec, ieso, aeso, eccc, statcan)", o.source)
 	}
 }
 

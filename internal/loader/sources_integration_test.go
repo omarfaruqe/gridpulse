@@ -64,6 +64,7 @@ const (
 	aesoLoad  = "source=aeso_albertainternalload/date=2026-11-06/AlbertaInternalLoad_2026-11-06.json"
 	ecccKey   = "source=eccc_climate_hourly/date=2026-11-06/7025251_2026-11-06.json"
 	fuelKey   = "source=ieso_genoutputbyfuelhourly/date=2026-11-08/PUB_GenOutputbyFuelHourly_2026_20261108T115056Z.xml"
+	statKey   = "source=statcan_25100015/date=2026-11-08/25100015_aaaaaaaaaaaa.csv"
 )
 
 func TestLoadGeneratorsPicksUpRevisedFileAtSameKey(t *testing.T) {
@@ -195,6 +196,7 @@ func TestLoadAllSourcesAndRerun(t *testing.T) {
 		aesoLoad:  fixture(t, "aeso", "testdata", "AlbertaInternalLoad.json"),
 		ecccKey:   fixture(t, "eccc", "testdata", "climate_hourly.json"),
 		fuelKey:   fixture(t, "ieso", "testdata", "GenOutputbyFuelHourly.xml"),
+		statKey:   fixture(t, "statcan", "testdata", "generation.csv"),
 	}}
 	for _, name := range SourceNames() {
 		if name == "hydroquebec" {
@@ -209,8 +211,8 @@ func TestLoadAllSourcesAndRerun(t *testing.T) {
 			t.Fatalf("%s second run = %+v, %v, want skipped", name, results, err)
 		}
 	}
-	if n := countRows(t, l, "staging.load_log"); n != 7 {
-		t.Errorf("load_log rows = %d, want 7", n)
+	if n := countRows(t, l, "staging.load_log"); n != 8 {
+		t.Errorf("load_log rows = %d, want 8", n)
 	}
 }
 
@@ -219,8 +221,8 @@ func TestUnknownSource(t *testing.T) {
 	if _, err := l.LoadAll(context.Background(), "nope", false); err == nil {
 		t.Error("expected an error for an unknown source")
 	}
-	if len(SourceNames()) != 8 {
-		t.Errorf("sources = %v, want 8", SourceNames())
+	if len(SourceNames()) != 9 {
+		t.Errorf("sources = %v, want 9", SourceNames())
 	}
 }
 
@@ -256,4 +258,47 @@ func TestLoadIESOFuel(t *testing.T) {
 	if n := countRows(t, l, "staging.ieso_fuel_hourly"); n != 12 {
 		t.Errorf("rows = %d, want 12", n)
 	}
+}
+
+func TestLoadStatCan(t *testing.T) {
+	ctx := context.Background()
+	csv := fixture(t, "statcan", "testdata", "generation.csv")
+	l := &Loader{Pool: dbtest.New(t), Bronze: memBronze{statKey: csv}}
+
+	res, err := l.Load(ctx, "statcan-generation", statKey, false)
+	if err != nil || res.Rows != 4 {
+		t.Fatalf("load = %+v, %v, want 4 rows (the Canada row is not loaded)", res, err)
+	}
+	const q = `SELECT mwh FROM staging.statcan_generation_monthly
+	           WHERE ref_month = $1 AND geo = $2 AND producer_class = $3 AND generation_type = $4`
+	aug := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	const all = "Total all classes of electricity producer"
+	wantFloat(t, "Ontario hydro", floatAt(t, l, q, aug, "Ontario", all, "Hydraulic turbine"), 2400000)
+	wantNull(t, "unavailable value (not zero)", floatAt(t, l, q, aug, "Ontario", "Electricity producers, industries", "Conventional steam turbine"))
+	if s := textAt(t, l, `SELECT status FROM staging.statcan_generation_monthly WHERE geo = 'Ontario' AND mwh IS NULL`); s == nil || *s != ".." {
+		t.Errorf("status of the unavailable value = %v, want ..", s)
+	}
+	if s := textAt(t, l, `SELECT status FROM staging.statcan_generation_monthly WHERE geo = 'Ontario' AND mwh IS NOT NULL`); s != nil {
+		t.Errorf("status of a normal value = %q, want NULL", *s)
+	}
+	if n := countRows(t, l, "staging.statcan_generation_monthly"); n != 4 {
+		t.Errorf("rows = %d, want 4", n)
+	}
+
+	// StatCan revises a past month: the newer download wins ...
+	revised := strings.Replace(string(csv), `"2400000"`, `"2500000"`, 1)
+	newerKey := "source=statcan_25100015/date=2026-11-09/25100015_bbbbbbbbbbbb.csv"
+	l.Bronze.(memBronze)[newerKey] = []byte(revised)
+	if _, err := l.Load(ctx, "statcan-generation", newerKey, false); err != nil {
+		t.Fatal(err)
+	}
+	wantFloat(t, "Ontario hydro after revision", floatAt(t, l, q, aug, "Ontario", all, "Hydraulic turbine"), 2500000)
+
+	// ... and replaying an older download does not undo it.
+	olderKey := "source=statcan_25100015/date=2026-11-01/25100015_cccccccccccc.csv"
+	l.Bronze.(memBronze)[olderKey] = []byte(strings.Replace(string(csv), `"2400000"`, `"1"`, 1))
+	if _, err := l.Load(ctx, "statcan-generation", olderKey, false); err != nil {
+		t.Fatal(err)
+	}
+	wantFloat(t, "Ontario hydro after replaying an older file", floatAt(t, l, q, aug, "Ontario", all, "Hydraulic turbine"), 2500000)
 }

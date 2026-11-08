@@ -20,6 +20,7 @@ import (
 	"github.com/omarfaruqe/gridpulse/internal/extractors/eccc"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/hydroquebec"
 	"github.com/omarfaruqe/gridpulse/internal/extractors/ieso"
+	"github.com/omarfaruqe/gridpulse/internal/extractors/statcan"
 	"github.com/omarfaruqe/gridpulse/internal/freshness"
 	"github.com/omarfaruqe/gridpulse/internal/loader"
 	"github.com/omarfaruqe/gridpulse/internal/scheduler"
@@ -100,6 +101,15 @@ func (p *Pipeline) Jobs() ([]scheduler.Job, error) {
 			Run: p.iesoDaily(io, "DAHourlyOntarioZonalPrice", "ieso-price", -1, 0, 1)},
 		{Name: "eccc", Spec: "40 */6 * * *", Timeout: 10 * time.Minute, Run: func(ctx context.Context) error {
 			return p.ecccRecent(ctx, ec)
+		}},
+		// StatCan publishes the table about monthly; the download is content-addressed,
+		// so checking daily stores a new object only when the table changed.
+		{Name: "statcan", Spec: "15 12 * * *", Timeout: 5 * time.Minute, Run: func(ctx context.Context) error {
+			res, err := statcan.New(p.Store).FetchGeneration(ctx)
+			if err != nil {
+				return err
+			}
+			return p.load(ctx, "statcan-generation", res.Key)
 		}},
 		{Name: "transform", Spec: "*/10 * * * *", Timeout: 5 * time.Minute, Run: p.transformJob},
 		{Name: "freshness", Spec: "3,18,33,48 * * * *", Timeout: time.Minute, Run: p.freshnessJob},
