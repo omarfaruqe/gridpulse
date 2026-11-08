@@ -16,8 +16,8 @@ type genDoc struct {
 		Name    string `xml:"GeneratorName"`
 		Fuel    string `xml:"FuelType"`
 		Outputs []struct {
-			Hour   int      `xml:"Hour"`
-			Energy *float64 `xml:"EnergyMW"`
+			Hour   int    `xml:"Hour"`
+			Energy string `xml:"EnergyMW"` // string: an empty element must stay nil, not 0
 		} `xml:"Outputs>Output"`
 	} `xml:"IMODocBody>Generators>Generator"`
 }
@@ -50,10 +50,14 @@ func ParseGenOutputCapability(data []byte) ([]GeneratorHour, error) {
 			if o.Hour < 1 || o.Hour > 24 {
 				return nil, fmt.Errorf("ieso: generator %s has invalid hour %d", g.Name, o.Hour)
 			}
+			energy, err := optionalFloat(o.Energy)
+			if err != nil {
+				return nil, fmt.Errorf("ieso: generator %s hour %d has bad EnergyMW %q: %w", g.Name, o.Hour, o.Energy, err)
+			}
 			start := day.Add(time.Duration(o.Hour-1) * time.Hour)
 			rows = append(rows, GeneratorHour{
 				Generator: g.Name, Fuel: g.Fuel, HourEnding: o.Hour,
-				IntervalStartUTC: start.UTC(), EnergyMW: o.Energy,
+				IntervalStartUTC: start.UTC(), EnergyMW: energy,
 			})
 		}
 	}

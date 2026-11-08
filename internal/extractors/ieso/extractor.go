@@ -27,6 +27,10 @@ var validators = map[string]func([]byte) (int, error){
 		rows, err := ParseGenOutputCapability(b)
 		return len(rows), err
 	},
+	"DAHourlyOntarioZonalPrice": func(b []byte) (int, error) {
+		rows, err := ParseDAHourlyOntarioZonalPrice(b)
+		return len(rows), err
+	},
 }
 
 // yearlyValidators do the same for yearly CSV reports, and also return the

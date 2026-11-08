@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document docID="DAHourlyOntarioZonalPrice" xmlns="http://www.ieso.ca/schema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<DocHeader>
+<DocTitle>Day Ahead Hourly Ontario Zonal Energy Price Report</DocTitle>
+<DocRevision>1</DocRevision>
+<DocConfidentiality>
+<DocConfClass>PUB</DocConfClass>
+</DocConfidentiality>
+<CreatedAt>2026-11-05T13:31:11</CreatedAt>
+</DocHeader>
+<DocBody>
+<DeliveryDate>2026-11-06</DeliveryDate>
+<HourlyPriceComponents>
+<PricingHour>1</PricingHour>
+<ZonalPrice>38.71</ZonalPrice>
+<LossPriceCapped>0.22</LossPriceCapped>
+<CongestionPriceCapped>0.45</CongestionPriceCapped>
+<Flag>DSO-RD</Flag>
+</HourlyPriceComponents>
+<HourlyPriceComponents>
+<PricingHour>2</PricingHour>
+<ZonalPrice>36.33</ZonalPrice>
+<LossPriceCapped>0.27</LossPriceCapped>
+<CongestionPriceCapped>0.48</CongestionPriceCapped>
+<Flag>DSO-RD</Flag>
+</HourlyPriceComponents>
+<HourlyPriceComponents>
+<PricingHour>3</PricingHour>
+<ZonalPrice/>
+<LossPriceCapped/>
+<CongestionPriceCapped/>
+<Flag/>
+</HourlyPriceComponents>
+</DocBody>
+</Document>
