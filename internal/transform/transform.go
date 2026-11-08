@@ -117,3 +117,33 @@ func (r *Runner) Test(ctx context.Context) ([]TestResult, error) {
 	}
 	return results, nil
 }
+
+// Record stores the outcome of a test run in ops.test_result and prunes
+// results older than 30 days. Test results are history, so a failure to record
+// them is returned but must not hide the results themselves.
+func (r *Runner) Record(ctx context.Context, results []TestResult) error {
+	tx, err := r.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("transform: record: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+
+	for _, res := range results {
+		var sample any // NULL for a passing test; each element is row_to_json output
+		if len(res.Sample) > 0 {
+			sample = "[" + strings.Join(res.Sample, ",") + "]"
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO ops.test_result (test, violations, sample) VALUES ($1, $2, $3::text::jsonb)`,
+			res.Name, res.Violations, sample); err != nil {
+			return fmt.Errorf("transform: record %s: %w", res.Name, err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM ops.test_result WHERE run_at < now() - interval '30 days'`); err != nil {
+		return fmt.Errorf("transform: prune test results: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("transform: record: commit: %w", err)
+	}
+	return nil
+}

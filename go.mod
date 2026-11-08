@@ -3,6 +3,7 @@ module github.com/omarfaruqe/gridpulse
 go 1.27.3
 
 require (
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/jackc/pgx/v5 v5.12.0
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/pressly/goose/v3 v3.29.0

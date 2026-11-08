@@ -268,3 +268,33 @@ func TestReconciliationCompletenessIgnoresSporadicFuels(t *testing.T) {
 		t.Errorf("total energy = %v, want %v (OTHER's output is included)", ieso, want)
 	}
 }
+
+func TestRecordKeepsHistoryAndPrunesOldRows(t *testing.T) {
+	ctx := context.Background()
+	pool := dbtest.New(t)
+	r := &Runner{Pool: pool, Files: sqlfiles.FS}
+	if err := r.Build(ctx); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, pool, `INSERT INTO ops.test_result (run_at, test, violations) VALUES (now() - interval '60 days', 'ancient', 0)`)
+
+	passing := TestResult{Name: "no_negative_load"}
+	failing := TestResult{Name: "no_missing_hours_load", Violations: 2, Sample: []string{`{"province_code":"ON"}`, `{"province_code":"QC"}`}}
+	for i := 0; i < 2; i++ {
+		if err := r.Record(ctx, []TestResult{passing, failing}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var rows, ancient, sampled int
+	if err := pool.QueryRow(ctx, `SELECT count(*), count(*) FILTER (WHERE test = 'ancient'),
+	   count(*) FILTER (WHERE jsonb_array_length(sample) = 2) FROM ops.test_result`).Scan(&rows, &ancient, &sampled); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 4 || ancient != 0 || sampled != 2 {
+		t.Errorf("rows = %d ancient = %d sampled = %d, want 4 0 2 (history kept, 60-day-old row pruned, sample stored as JSON)", rows, ancient, sampled)
+	}
+	var nullSamples int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM ops.test_result WHERE test = 'no_negative_load' AND sample IS NULL`).Scan(&nullSamples); err != nil || nullSamples != 2 {
+		t.Errorf("passing tests with NULL sample = %d, %v, want 2", nullSamples, err)
+	}
+}

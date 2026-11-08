@@ -65,6 +65,9 @@ func run(ctx context.Context, log *slog.Logger, skipTests, testsOnly bool) error
 	if err != nil {
 		return err
 	}
+	if err := r.Record(ctx, results); err != nil {
+		log.Warn("could not record test results", "error", err)
+	}
 	failed := 0
 	for _, t := range results {
 		if t.Passed() {

@@ -237,6 +237,9 @@ func (p *Pipeline) transformJob(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := p.Transform.Record(ctx, results); err != nil {
+		p.Log.Warn("could not record test results", "error", err)
+	}
 	var failed []string
 	for _, t := range results {
 		if !t.Passed() {
