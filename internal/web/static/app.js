@@ -37,6 +37,12 @@
     }, extra);
   }
 
+  // Reconciliation groups come from the API as English keys; the page shows them in its language.
+  const groupNames = {
+    en: { Combustible: 'Combustible fuels', Hydro: 'Hydro', Nuclear: 'Nuclear', Solar: 'Solar', Total: 'Total', Wind: 'Wind' },
+    fr: { Combustible: 'Combustibles', Hydro: 'Hydroélectricité', Nuclear: 'Nucléaire', Solar: 'Solaire', Total: 'Total', Wind: 'Éolien' },
+  };
+
   const builders = {
     load(rows, el) {
       return {
@@ -109,7 +115,7 @@
           const byMonth = new Map(usable.filter((r) => r.group === g).map((r) => [r.month, r]));
           const at = (m) => byMonth.get(m);
           return {
-            label: g, data: months.map((m) => at(m)?.ratio ?? null),
+            label: groupNames[lang][g] || g, data: months.map((m) => at(m)?.ratio ?? null),
             borderColor: colour(i), backgroundColor: colour(i), borderWidth: 2, spanGaps: false,
             // a triangle marks a month outside its tolerance band, so colour is not the only cue
             pointStyle: months.map((m) => (at(m)?.status === 'out_of_band' ? 'triangle' : 'circle')),
