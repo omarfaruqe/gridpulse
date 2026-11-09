@@ -58,10 +58,24 @@ A month gets a status: `ok`, `out_of_band`, `incomplete` (IESO coverage of the s
 What was observed (IESO ÷ StatCan):
 
 - Nuclear is about 0.993, Total about 0.954, Hydro about 0.95 and Wind about 0.96.
-- Solar is about 0.29. **The cause has not been established.**
+- Solar is about 0.29. **The cause is likely a difference in scope but is not confirmed**; see below.
 - Combustible varies between 0.78 and 0.97, which is why its tolerance is wide.
 - Nuclear in 2023-07 and 2023-08 is outside its band. Both months are marked reviewed; **the cause has not been established.**
 - Statistics Canada leaves Ontario's individual turbine categories blank since 2022, so the comparison uses Nuclear, Hydro, Wind, Solar, Combustible and Total only.
+
+### Solar
+
+The IESO hourly report covers generators of 20 MW or more registered with the IESO, and IESO states that distribution-connected (embedded) generation is not reported in its output reports. IESO also states that most Ontario solar is distribution-connected, and publishes transmission-connected solar output of 0.8 TWh for 2024 and 0.7 TWh for 2025.
+
+| Year | IESO report (TWh) | StatCan (TWh) | Ratio |
+|---|---|---|---|
+| 2022 | 0.70 | 2.29 | 0.304 |
+| 2023 | 0.68 | 2.30 | 0.296 |
+| 2024 | 0.69 | 2.32 | 0.296 |
+| 2025 | 0.67 | 2.28 | 0.294 |
+| 2026 (8 months) | 0.48 | 1.63 | 0.292 |
+
+What this supports: the pipeline's solar totals are close to IESO's own published figures (slightly lower, as expected from the 20 MW threshold), and the ratio is steady at 0.29 to 0.30 in every year, which fits a fixed share of solar that the report does not cover better than it fits a loading error. What is not established: how Statistics Canada defines solar generation in this table, so it is not confirmed that the remaining share is embedded solar. The reconciliation keeps comparing solar against its own baseline for that reason.
 
 ## Known gaps and limits
 
