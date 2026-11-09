@@ -68,3 +68,58 @@ ORDER BY s.series`)
 	}
 	return out, rows.Err()
 }
+
+// Record stores the result of one check in ops.freshness_lag and prunes rows
+// older than 90 days, so the limits can be tuned from what was observed.
+func Record(ctx context.Context, pool *pgxpool.Pool, now time.Time, statuses []Status) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("freshness: record: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+
+	for _, s := range statuses {
+		var lag *int64 // NULL when the series has no data
+		if s.LatestHour != nil {
+			v := int64(s.Lag.Seconds())
+			lag = &v
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO ops.freshness_lag (checked_at, series, latest_hour, lag_seconds, max_lag_seconds, stale)
+VALUES ($1, $2, $3, $4, $5, $6)`,
+			now, s.Series, s.LatestHour, lag, int64(s.MaxLag.Seconds()), s.Stale); err != nil {
+			return fmt.Errorf("freshness: record %s: %w", s.Series, err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM ops.freshness_lag WHERE checked_at < $1::timestamptz - interval '90 days'`, now); err != nil {
+		return fmt.Errorf("freshness: prune: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("freshness: record: commit: %w", err)
+	}
+	return nil
+}
+
+// WorstLags returns, per series, the largest lag seen at any check in the
+// seven days before now. Series with no recorded data are absent.
+func WorstLags(ctx context.Context, pool *pgxpool.Pool, now time.Time) (map[string]int64, error) {
+	rows, err := pool.Query(ctx, `
+SELECT series, max(lag_seconds)::bigint
+FROM ops.freshness_lag
+WHERE checked_at > $1::timestamptz - interval '7 days' AND checked_at <= $1 AND lag_seconds IS NOT NULL
+GROUP BY series`, now)
+	if err != nil {
+		return nil, fmt.Errorf("freshness: worst lags: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]int64{}
+	for rows.Next() {
+		var series string
+		var worst int64
+		if err := rows.Scan(&series, &worst); err != nil {
+			return nil, fmt.Errorf("freshness: worst lags: scan: %w", err)
+		}
+		out[series] = worst
+	}
+	return out, rows.Err()
+}

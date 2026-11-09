@@ -16,6 +16,9 @@ type FreshnessEntry struct {
 	LagSeconds    *int64     `json:"lag_seconds"` // negative when the data runs ahead of the clock
 	MaxLagSeconds int64      `json:"max_lag_seconds"`
 	Stale         bool       `json:"stale"`
+	// WorstLag7dSeconds is the largest lag seen at any check in the last seven
+	// days; null until checks have been recorded.
+	WorstLag7dSeconds *int64 `json:"worst_lag_7d_seconds"`
 }
 
 // JobStatus summarises the runs of one scheduled job.
@@ -62,6 +65,10 @@ func (a *API) Health(r *http.Request) (PipelineHealth, error) {
 	if err != nil {
 		return PipelineHealth{}, err
 	}
+	worst, err := freshness.WorstLags(ctx, a.Pool, now)
+	if err != nil {
+		return PipelineHealth{}, err
+	}
 	out := PipelineHealth{GeneratedAt: now.UTC(), Freshness: make([]FreshnessEntry, 0, len(statuses))}
 	for _, s := range statuses {
 		e := FreshnessEntry{Series: s.Series, MaxLagSeconds: int64(s.MaxLag.Seconds()), Stale: s.Stale}
@@ -69,6 +76,9 @@ func (a *API) Health(r *http.Request) (PipelineHealth, error) {
 			latest := s.LatestHour.UTC() // the driver returns the host's local zone
 			lag := int64(s.Lag.Seconds())
 			e.LatestHourUTC, e.LagSeconds = &latest, &lag
+		}
+		if w, ok := worst[s.Series]; ok {
+			e.WorstLag7dSeconds = &w
 		}
 		if s.Stale {
 			out.Summary.StaleSeries++

@@ -31,6 +31,8 @@ The weights are approximate metro-population shares and should be refined with S
 
 A series is stale when its newest hour is older than its limit (`ops.freshness_sla`). The limits follow how each source publishes, not a wish for low latency.
 
+The limits are first estimates. Every check records each series' lag in `ops.freshness_lag` (kept 90 days), and the pipeline page shows the worst lag seen in the last 7 days next to each limit, so a limit can be set from observed behaviour instead of a guess.
+
 | Series | Limit | Why |
 |---|---|---|
 | load_QC | 3 h | Hydro-Québec feed updates every 15 minutes |

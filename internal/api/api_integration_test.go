@@ -65,6 +65,14 @@ func newServer(t *testing.T) http.Handler {
 	 ('2026-11-08 11:30+00', 'no_negative_load', 0),
 	 ('2026-11-08 11:30+00', 'no_missing_hours_load', 2)`)
 
+	exec(t, pool, `INSERT INTO ops.freshness_lag (checked_at, series, latest_hour, lag_seconds, max_lag_seconds, stale) VALUES
+	 ('2026-11-08 06:00+00', 'load_QC',  '2026-11-08 05:00+00', 3600, 10800, false),
+	 ('2026-11-08 09:00+00', 'load_QC',  '2026-11-08 05:00+00', 14400, 10800, true),
+	 ('2026-11-08 11:00+00', 'load_QC',  '2026-11-08 10:00+00', 3600, 10800, false),
+	 ('2026-10-30 09:00+00', 'load_QC',  '2026-10-29 00:00+00', 999999, 10800, true),
+	 ('2026-11-08 06:00+00', 'price_ON', '2026-11-09 04:00+00', -79200, 43200, false),
+	 ('2026-11-08 07:00+00', 'price_ON', '2026-11-09 04:00+00', -75600, 43200, false)`)
+
 	a := New(pool, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	a.Now = func() time.Time { return fixedNow }
 	return a.Handler()
@@ -215,6 +223,19 @@ func TestAPIHealthAndPipeline(t *testing.T) {
 	}
 	if len(p.Freshness) != 9 {
 		t.Errorf("freshness series = %d, want 9", len(p.Freshness))
+	}
+	worst := map[string]*int64{}
+	for _, f := range p.Freshness {
+		worst[f.Series] = f.WorstLag7dSeconds
+	}
+	if w := worst["load_QC"]; w == nil || *w != 14400 {
+		t.Errorf("load_QC worst lag = %v, want 14400 (the check 9 days ago is outside the window)", w)
+	}
+	if w := worst["price_ON"]; w == nil || *w != -75600 {
+		t.Errorf("price_ON worst lag = %v, want -75600 (the largest of the negative lags)", w)
+	}
+	if worst["weather_QC"] != nil {
+		t.Errorf("weather_QC worst lag = %v, want null (no checks recorded)", *worst["weather_QC"])
 	}
 	byJob := map[string]JobStatus{}
 	for _, j := range p.Jobs {

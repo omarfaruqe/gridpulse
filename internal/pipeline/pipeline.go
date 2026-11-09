@@ -259,6 +259,9 @@ func (p *Pipeline) freshnessJob(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := freshness.Record(ctx, p.Pool, p.Now(), statuses); err != nil {
+		p.Log.Warn("could not record freshness", "error", err)
+	}
 	var stale []string
 	for _, s := range statuses {
 		if s.Stale {

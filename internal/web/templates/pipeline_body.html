@@ -10,18 +10,19 @@
 
 <h2>{{.T.pl_freshness}}</h2>
 <div class="table-wrap"><table>
-  <thead><tr><th>{{.T.pl_series}}</th><th>{{.T.pl_latest}}</th><th class="num">{{.T.pl_lag}}</th><th class="num">{{.T.pl_limit}}</th><th>{{.T.pl_status}}</th></tr></thead>
+  <thead><tr><th>{{.T.pl_series}}</th><th>{{.T.pl_latest}}</th><th class="num">{{.T.pl_lag}}</th><th class="num">{{.T.pl_limit}}</th><th class="num">{{.T.pl_worst}}</th><th>{{.T.pl_status}}</th></tr></thead>
   <tbody>
   {{range .H.Freshness}}<tr>
     <td>{{.Series}}</td>
     <td>{{with .LatestHourUTC}}{{stampTime .}}{{else}}—{{end}}</td>
     <td class="num">{{with .LagSeconds}}{{dur .}}{{else}}—{{end}}</td>
     <td class="num">{{dur .MaxLagSeconds}}</td>
+    <td class="num">{{with .WorstLag7dSeconds}}{{dur .}}{{else}}—{{end}}</td>
     <td>{{if .Stale}}<span class="pill bad">▲ {{$.T.pl_stale}}</span>{{else}}<span class="pill ok">● {{$.T.pl_fresh}}</span>{{end}}</td>
   </tr>{{end}}
   </tbody>
 </table></div>
-<p class="note">{{.T.pl_ahead_note}}</p>
+<p class="note">{{.T.pl_ahead_note}} {{.T.pl_worst_note}}</p>
 
 <h2>{{.T.pl_jobs}}</h2>
 {{if .H.Jobs}}<div class="table-wrap"><table>
