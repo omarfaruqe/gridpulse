@@ -35,7 +35,11 @@ WITH latest AS (
     UNION ALL
     SELECT 'price_' || province_code,
            max(hour_utc) FILTER (WHERE price_cad_mwh IS NOT NULL)
-    FROM gold.fact_hourly_price GROUP BY province_code
+    FROM gold.fact_hourly_price WHERE price_kind <> 'real_time_zonal_avg' GROUP BY province_code
+    UNION ALL
+    SELECT 'price_rt_' || province_code,
+           max(hour_utc) FILTER (WHERE price_cad_mwh IS NOT NULL)
+    FROM gold.fact_hourly_price WHERE price_kind = 'real_time_zonal_avg' GROUP BY province_code
     UNION ALL
     SELECT 'weather_' || province_code,
            max(hour_utc) FILTER (WHERE temp_c IS NOT NULL)

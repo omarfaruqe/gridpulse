@@ -29,7 +29,7 @@ type options struct {
 func main() {
 	var o options
 	flag.StringVar(&o.source, "source", "", "source to extract (hydroquebec, ieso, aeso, eccc, statcan)")
-	flag.StringVar(&o.report, "report", "GenOutputCapability", "report name (ieso: GenOutputCapability, Demand, DAHourlyOntarioZonalPrice; aeso: PoolPrice, AlbertaInternalLoad)")
+	flag.StringVar(&o.report, "report", "GenOutputCapability", "report name (ieso: GenOutputCapability, Demand, DAHourlyOntarioZonalPrice, RealtimeOntarioZonalPrice (hourly files: needs -from and -to); aeso: PoolPrice, AlbertaInternalLoad)")
 	flag.StringVar(&o.date, "date", "", "single data day YYYY-MM-DD (default: yesterday)")
 	flag.StringVar(&o.from, "from", "", "ieso backfill: first day YYYY-MM-DD (needs -to)")
 	flag.StringVar(&o.to, "to", "", "ieso backfill: last day YYYY-MM-DD (needs -from)")
@@ -102,6 +102,9 @@ func runIESO(ctx context.Context, log *slog.Logger, store *bronze.Store, o optio
 
 	if ieso.IsYearly(o.report) {
 		return runIESOYearly(ctx, log, ex, o)
+	}
+	if ieso.IsHourly(o.report) {
+		return runIESOHourly(ctx, log, ex, o)
 	}
 
 	if o.from != "" || o.to != "" {
@@ -247,4 +250,27 @@ func listKeys(ctx context.Context, prefix string) error {
 	}
 	fmt.Printf("%d object(s)\n", len(keys))
 	return nil
+}
+
+// runIESOHourly backfills a report published as one file per delivery hour.
+// IESO keeps about 90 days of them.
+func runIESOHourly(ctx context.Context, log *slog.Logger, ex *ieso.Extractor, o options) error {
+	if o.from == "" || o.to == "" {
+		return fmt.Errorf("%s is published hourly: give -from and -to (YYYY-MM-DD, EST days)", o.report)
+	}
+	from, err := parseDay(o.from)
+	if err != nil {
+		return fmt.Errorf("-from: %w", err)
+	}
+	to, err := parseDay(o.to)
+	if err != nil {
+		return fmt.Errorf("-to: %w", err)
+	}
+	stored, missing, err := ex.BackfillHours(ctx, from, to)
+	first := missing
+	if len(first) > 5 {
+		first = first[:5]
+	}
+	log.Info("backfill finished", "report", o.report, "stored", len(stored), "missing", len(missing), "first_missing", first)
+	return err
 }

@@ -221,8 +221,8 @@ func TestAPIHealthAndPipeline(t *testing.T) {
 	if !p.GeneratedAt.Equal(fixedNow) {
 		t.Errorf("generated_at = %v", p.GeneratedAt)
 	}
-	if len(p.Freshness) != 9 {
-		t.Errorf("freshness series = %d, want 9", len(p.Freshness))
+	if len(p.Freshness) != 10 {
+		t.Errorf("freshness series = %d, want 10", len(p.Freshness))
 	}
 	worst := map[string]*int64{}
 	for _, f := range p.Freshness {

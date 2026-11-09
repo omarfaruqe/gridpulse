@@ -99,6 +99,12 @@ func (p *Pipeline) Jobs() ([]scheduler.Job, error) {
 		// usually not there yet, which is not an error.
 		{Name: "ieso-price", Spec: "30 */2 * * *", Timeout: 3 * time.Minute,
 			Run: p.iesoDaily(io, "DAHourlyOntarioZonalPrice", "ieso-price", -1, 0, 1)},
+		// Real-time prices come as one file per delivery hour, rewritten every five
+		// minutes while the hour runs. The frequent job re-reads the last few hours;
+		// the hourly one re-reads two days so a gap (for example after the machine
+		// slept) closes by itself.
+		{Name: "ieso-rtprice", Spec: "2-57/5 * * * *", Timeout: 2 * time.Minute, Run: p.iesoRealtime(io, 3)},
+		{Name: "ieso-rtprice-catchup", Spec: "17 * * * *", Timeout: 5 * time.Minute, Run: p.iesoRealtime(io, 48)},
 		{Name: "eccc", Spec: "40 */6 * * *", Timeout: 10 * time.Minute, Run: func(ctx context.Context) error {
 			return p.ecccRecent(ctx, ec)
 		}},
@@ -182,6 +188,29 @@ func (p *Pipeline) iesoDaily(ex *ieso.Extractor, report, loadName string, offset
 				continue
 			}
 			errs = append(errs, p.load(ctx, loadName, res.Key))
+		}
+		return errors.Join(errs...)
+	}
+}
+
+// iesoRealtime fetches the hourly real-time price files of the last n delivery
+// hours, newest first. Hours without a priced interval yet are not an error.
+func (p *Pipeline) iesoRealtime(ex *ieso.Extractor, n int) func(context.Context) error {
+	return func(ctx context.Context) error {
+		var errs []error
+		for k := 0; k < n; k++ {
+			t := p.Now().Add(-time.Duration(k) * time.Hour).In(ieso.EST)
+			hour := t.Hour() + 1 // delivery hours are hour ending, 1..24
+			res, err := ex.FetchHour(ctx, t, hour)
+			if errors.Is(err, ieso.ErrNotPublished) {
+				p.Log.Debug("real-time price not published", "day", t.Format("2006-01-02"), "hour", hour)
+				continue
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("%s %s hour %d: %w", ieso.RTPriceReport, t.Format("2006-01-02"), hour, err))
+				continue
+			}
+			errs = append(errs, p.load(ctx, "ieso-rtprice", res.Key))
 		}
 		return errors.Join(errs...)
 	}

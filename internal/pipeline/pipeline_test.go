@@ -36,7 +36,7 @@ func TestJobsAreValid(t *testing.T) {
 	for _, tc := range []struct {
 		key  string
 		want int
-	}{{"", 9}, {"some-key", 11}} {
+	}{{"", 11}, {"some-key", 13}} {
 		p := New(Config{AESOKey: tc.key, Log: quiet})
 		jobs, err := p.Jobs()
 		if err != nil {

@@ -35,6 +35,11 @@ func TestCheck(t *testing.T) {
 	exec(`INSERT INTO gold.fact_hourly_price (province_code, hour_utc, price_cad_mwh, price_kind, source)
 	  VALUES ('ON', $1, 40, 'day_ahead_zonal', 'x')`, now.Add(14*time.Hour))
 
+	// Real-time prices stop 5 h ago (limit 3 h). The series is separate from the
+	// day-ahead one, which stays fresh because it runs ahead of the clock.
+	exec(`INSERT INTO gold.fact_hourly_price (province_code, hour_utc, price_cad_mwh, price_kind, source)
+	  VALUES ('ON', $1, 50, 'real_time_zonal_avg', 'x')`, now.Add(-5*time.Hour))
+
 	statuses, err := Check(ctx, pool, now)
 	if err != nil {
 		t.Fatal(err)
@@ -43,12 +48,12 @@ func TestCheck(t *testing.T) {
 	for _, s := range statuses {
 		got[s.Series] = s
 	}
-	if len(got) != 9 {
-		t.Fatalf("series = %d, want 9 from ops.freshness_sla", len(got))
+	if len(got) != 10 {
+		t.Fatalf("series = %d, want 10 from ops.freshness_sla", len(got))
 	}
 	want := map[string]bool{
 		"load_QC": false, "load_ON": true, "load_AB": true,
-		"price_ON": false, "price_AB": true,
+		"price_ON": false, "price_AB": true, "price_rt_ON": true,
 		"generation_ON": true, "weather_QC": true, "weather_ON": true, "weather_AB": true,
 	}
 	for series, stale := range want {

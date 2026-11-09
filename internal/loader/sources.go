@@ -20,6 +20,7 @@ var sources = map[string]source{
 	"ieso-demand":        {ieso.Source("Demand"), parseIESODemand},
 	"ieso-fuel":          {ieso.Source("GenOutputbyFuelHourly"), parseIESOFuel},
 	"ieso-price":         {ieso.Source("DAHourlyOntarioZonalPrice"), parseDAPrice},
+	"ieso-rtprice":       {ieso.Source(ieso.RTPriceReport), parseRTPrice},
 	"aeso-price":         {aeso.Source("PoolPrice"), parsePoolPrice},
 	"aeso-load":          {aeso.Source("AlbertaInternalLoad"), parseAESOLoad},
 	"eccc":               {eccc.Source, parseECCC},
@@ -135,6 +136,37 @@ func parseDAPrice(key string, data []byte) ([]statement, error) {
 	for _, r := range rows {
 		stmts = append(stmts, statement{upsertDAPrice,
 			[]any{r.IntervalStartUTC, r.HourEnding, r.ZonalPrice, r.LossPrice, r.CongestionPrice, nullable(r.Flag), key}})
+	}
+	return stmts, nil
+}
+
+const upsertRTPrice = `
+INSERT INTO staging.ieso_rt_price_5min (interval_start_utc, delivery_hour, interval_no, zonal_price, loss_price, congestion_price, flag, snapshot_utc, bronze_key)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (interval_start_utc) DO UPDATE SET
+    delivery_hour    = EXCLUDED.delivery_hour,
+    interval_no      = EXCLUDED.interval_no,
+    zonal_price      = EXCLUDED.zonal_price,
+    loss_price       = EXCLUDED.loss_price,
+    congestion_price = EXCLUDED.congestion_price,
+    flag             = EXCLUDED.flag,
+    snapshot_utc     = EXCLUDED.snapshot_utc,
+    bronze_key       = EXCLUDED.bronze_key,
+    loaded_at        = now()
+WHERE EXCLUDED.snapshot_utc >= staging.ieso_rt_price_5min.snapshot_utc`
+
+func parseRTPrice(key string, data []byte) ([]statement, error) {
+	h, err := ieso.ParseRealtimeOntarioZonalPrice(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(h.Intervals) == 0 {
+		return nil, fmt.Errorf("%s has no priced interval", key)
+	}
+	stmts := make([]statement, 0, len(h.Intervals))
+	for _, r := range h.Intervals {
+		stmts = append(stmts, statement{upsertRTPrice,
+			[]any{r.IntervalStartUTC, h.HourEnding, r.Interval, r.ZonalPrice, r.LossPrice, r.CongestionPrice, nullable(r.Flag), h.Created, key}})
 	}
 	return stmts, nil
 }

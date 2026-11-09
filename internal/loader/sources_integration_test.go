@@ -60,6 +60,7 @@ const (
 	genKey    = "source=ieso_genoutputcapability/date=2026-11-06/PUB_GenOutputCapability_20261106.xml"
 	demandKey = "source=ieso_demand/date=2026-11-07/PUB_Demand_2026_20261107T123015Z.csv"
 	priceKey  = "source=ieso_dahourlyontariozonalprice/date=2026-11-06/PUB_DAHourlyOntarioZonalPrice_20261106.xml"
+	rtKey     = "source=ieso_realtimeontariozonalprice/date=2026-11-09/PUB_RealtimeOntarioZonalPrice_2026110914_20261109T182809Z.xml"
 	poolKey   = "source=aeso_poolprice/date=2026-11-06/PoolPrice_2026-11-06.json"
 	aesoLoad  = "source=aeso_albertainternalload/date=2026-11-06/AlbertaInternalLoad_2026-11-06.json"
 	ecccKey   = "source=eccc_climate_hourly/date=2026-11-06/7025251_2026-11-06.json"
@@ -192,6 +193,7 @@ func TestLoadAllSourcesAndRerun(t *testing.T) {
 		genKey:    fixture(t, "ieso", "testdata", "GenOutputCapability.xml"),
 		demandKey: fixture(t, "ieso", "testdata", "Demand.csv"),
 		priceKey:  fixture(t, "ieso", "testdata", "DAHourlyOntarioZonalPrice.xml"),
+		rtKey:     fixture(t, "ieso", "testdata", "RealtimeOntarioZonalPrice.xml"),
 		poolKey:   fixture(t, "aeso", "testdata", "PoolPrice.json"),
 		aesoLoad:  fixture(t, "aeso", "testdata", "AlbertaInternalLoad.json"),
 		ecccKey:   fixture(t, "eccc", "testdata", "climate_hourly.json"),
@@ -211,8 +213,8 @@ func TestLoadAllSourcesAndRerun(t *testing.T) {
 			t.Fatalf("%s second run = %+v, %v, want skipped", name, results, err)
 		}
 	}
-	if n := countRows(t, l, "staging.load_log"); n != 8 {
-		t.Errorf("load_log rows = %d, want 8", n)
+	if n := countRows(t, l, "staging.load_log"); n != 9 {
+		t.Errorf("load_log rows = %d, want 9", n)
 	}
 }
 
@@ -221,8 +223,8 @@ func TestUnknownSource(t *testing.T) {
 	if _, err := l.LoadAll(context.Background(), "nope", false); err == nil {
 		t.Error("expected an error for an unknown source")
 	}
-	if len(SourceNames()) != 9 {
-		t.Errorf("sources = %v, want 9", SourceNames())
+	if len(SourceNames()) != 10 {
+		t.Errorf("sources = %v, want 10", SourceNames())
 	}
 }
 
@@ -301,4 +303,46 @@ func TestLoadStatCan(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantFloat(t, "Ontario hydro after replaying an older file", floatAt(t, l, q, aug, "Ontario", all, "Hydraulic turbine"), 2500000)
+}
+
+func TestLoadIESORealtimePriceKeepsNewestSnapshot(t *testing.T) {
+	ctx := context.Background()
+	original := string(fixture(t, "ieso", "testdata", "RealtimeOntarioZonalPrice.xml"))
+	l := &Loader{Pool: dbtest.New(t), Bronze: memBronze{rtKey: []byte(original)}}
+
+	res, err := l.Load(ctx, "ieso-rtprice", rtKey, false)
+	if err != nil || res.Rows != 7 {
+		t.Fatalf("load = %+v, %v, want 7 rows (intervals 8 to 12 are not published yet)", res, err)
+	}
+	const q = `SELECT zonal_price FROM staging.ieso_rt_price_5min WHERE interval_start_utc = $1`
+	at := func(h, m int) time.Time { return time.Date(2026, 11, 9, h, m, 0, 0, time.UTC) }
+	wantFloat(t, "interval 1", floatAt(t, l, q, at(18, 0)), 54.35)
+	wantFloat(t, "interval 7", floatAt(t, l, q, at(18, 30)), 149.37)
+	if f := textAt(t, l, `SELECT flag FROM staging.ieso_rt_price_5min WHERE interval_start_utc = $1`, at(18, 0)); f == nil || *f != "DSO-RD" {
+		t.Errorf("flag = %v, want DSO-RD as published", f)
+	}
+
+	// A later snapshot publishes interval 8 and leaves the others alone.
+	later := strings.NewReplacer(
+		"2026-11-09T13:28:09", "2026-11-09T13:33:09",
+		"<Interval>8</Interval>\n<Flag/>\n<LmpCap/>", "<Interval>8</Interval>\n<Flag>DSO-RD</Flag>\n<LmpCap>150.00</LmpCap>",
+	).Replace(original)
+	laterKey := "source=ieso_realtimeontariozonalprice/date=2026-11-09/PUB_RealtimeOntarioZonalPrice_2026110914_20261109T183309Z.xml"
+	l.Bronze.(memBronze)[laterKey] = []byte(later)
+	if _, err := l.Load(ctx, "ieso-rtprice", laterKey, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := countRows(t, l, "staging.ieso_rt_price_5min"); n != 8 {
+		t.Errorf("rows = %d, want 8", n)
+	}
+	wantFloat(t, "interval 8", floatAt(t, l, q, at(18, 35)), 150)
+
+	// Replaying an older snapshot must not overwrite newer data.
+	older := strings.NewReplacer("2026-11-09T13:28:09", "2026-11-09T13:20:00", "<LmpCap>54.35<", "<LmpCap>1.00<").Replace(original)
+	olderKey := "source=ieso_realtimeontariozonalprice/date=2026-11-09/PUB_RealtimeOntarioZonalPrice_2026110914_20261109T182000Z.xml"
+	l.Bronze.(memBronze)[olderKey] = []byte(older)
+	if _, err := l.Load(ctx, "ieso-rtprice", olderKey, false); err != nil {
+		t.Fatal(err)
+	}
+	wantFloat(t, "interval 1 after replaying an older file", floatAt(t, l, q, at(18, 0)), 54.35)
 }

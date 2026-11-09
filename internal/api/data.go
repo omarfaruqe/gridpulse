@@ -142,7 +142,7 @@ func (a *API) prices(w http.ResponseWriter, r *http.Request) {
 	}
 	list[PricePoint](a, w, r, meta, `
 SELECT `+iso("hour_utc")+` AS hour_utc, price_cad_mwh, price_kind, source FROM gold.fact_hourly_price
-WHERE province_code = $1 AND hour_utc >= $2 AND hour_utc < $3 ORDER BY 1`, prov, rng.from, rng.to)
+WHERE province_code = $1 AND hour_utc >= $2 AND hour_utc < $3 ORDER BY 1, price_kind`, prov, rng.from, rng.to)
 }
 
 func (a *API) weather(w http.ResponseWriter, r *http.Request) {
