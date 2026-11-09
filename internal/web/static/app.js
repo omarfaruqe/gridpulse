@@ -23,7 +23,7 @@
 
   function axes(ylabel, xlabel) {
     return {
-      x: { title: { display: !!xlabel, text: xlabel }, ticks: { maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } },
+      x: { title: { display: !!xlabel, text: xlabel }, ticks: { maxTicksLimit: 8, maxRotation: 0, autoSkipPadding: 28 }, grid: { display: false } },
       y: { title: { display: !!ylabel, text: ylabel }, grid: { color: css('--line') } },
     };
   }
@@ -93,7 +93,7 @@
           backgroundColor: colour(i), borderColor: colour(i), borderWidth: 0.5, pointRadius: 0, fill: true, stack: 'gen',
         })) },
         options: base({
-          scales: Object.assign(axes(el.dataset.ylabel), { y: { stacked: true, title: { display: true, text: el.dataset.ylabel }, grid: { color: css('--line') } } }),
+          scales: Object.assign(axes(el.dataset.ylabel), { y: { stacked: true, beginAtZero: true, title: { display: true, text: el.dataset.ylabel }, grid: { color: css('--line') } } }),
           plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt.format(c.parsed.y)}` } } },
         }),
       };

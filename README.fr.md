@@ -13,6 +13,12 @@ Ce que le projet démontre :
 
 [Architecture et schéma](docs/architecture.md) · [Notes sur les données et limites connues](docs/data-notes.md) (en anglais)
 
+## Captures d'écran
+
+![Tableau de bord de l'Ontario : demande, production par filière, prix, demande selon la température et réconciliation avec Statistique Canada](docs/images/dashboard-fr.png)
+
+![Page de santé du pipeline : fraîcheur par série, dernières exécutions et résultats des tests de qualité (capture en anglais)](docs/images/pipeline-en.png)
+
 ## Démarrage rapide
 
 Prérequis : Docker avec Compose. Go (voir `go.mod`) seulement pour compiler ou tester hors des conteneurs.

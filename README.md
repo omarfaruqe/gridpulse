@@ -13,6 +13,12 @@ What it shows:
 
 [Architecture and diagram](docs/architecture.md) · [Data notes and known gaps](docs/data-notes.md)
 
+## Screenshots
+
+![Dashboard for Ontario: demand, generation by fuel, price, demand against temperature and the StatCan reconciliation](docs/images/dashboard-en.png)
+
+![Pipeline health page: freshness per series, latest job runs and data quality test results](docs/images/pipeline-en.png)
+
 ## Quick start
 
 Requirements: Docker with Compose. Go (see `go.mod`) only if you want to build or test outside containers.

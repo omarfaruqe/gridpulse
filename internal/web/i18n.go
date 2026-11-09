@@ -24,7 +24,7 @@ var text = map[string]map[string]string{
 		"sc_title":    "Demand and temperature",
 		"sc_x":        "Temperature (°C)",
 		"sc_y":        "Demand (MW)",
-		"recon_title": "Ontario generation: IESO report ÷ Statistics Canada",
+		"recon_title": "Ontario generation: IESO report compared with Statistics Canada",
 		"recon_note":  "Each line is compared with its own trailing 12-month baseline, not with 1. Triangles are months outside their tolerance band.",
 		"recon_y":     "Ratio",
 
@@ -81,7 +81,7 @@ var text = map[string]map[string]string{
 		"sc_title":    "Demande et température",
 		"sc_x":        "Température (°C)",
 		"sc_y":        "Demande (MW)",
-		"recon_title": "Production de l'Ontario : rapport de l'IESO ÷ Statistique Canada",
+		"recon_title": "Production de l'Ontario : rapport de l'IESO comparé à Statistique Canada",
 		"recon_note":  "Chaque courbe est comparée à sa propre base des 12 mois précédents, et non à 1. Les triangles sont les mois hors de leur tolérance.",
 		"recon_y":     "Ratio",
 
