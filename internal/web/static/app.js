@@ -3,6 +3,7 @@
 (() => {
   'use strict';
   const lang = document.documentElement.lang === 'fr' ? 'fr' : 'en';
+  const baseURL = document.body.dataset.base || ''; // set when the site is mounted under a path prefix
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const colour = (i) => css('--c' + ((i % 8) + 1));
   const fmt = new Intl.NumberFormat(lang === 'fr' ? 'fr-CA' : 'en-CA', { maximumFractionDigits: 1 });
@@ -99,7 +100,7 @@
     },
 
     async generation(rows, el) {
-      const fuels = await getJSON('/api/v1/fuels');
+      const fuels = await getJSON(baseURL + '/api/v1/fuels');
       const names = Object.fromEntries(fuels.map((f) => [f.fuel_type, lang === 'fr' ? f.name_fr : f.name_en]));
       const hours = [...new Set(rows.map((r) => r.hour_utc))];
       const byFuel = new Map();

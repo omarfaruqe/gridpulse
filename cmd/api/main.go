@@ -22,6 +22,7 @@ import (
 func main() {
 	addr := flag.String("addr", ":8080", "address to listen on")
 	grace := flag.Duration("grace", 15*time.Second, "how long in-flight requests may finish after a shutdown signal")
+	basePath := flag.String("base-path", os.Getenv("GRIDPULSE_BASE_PATH"), "URL prefix the site is served under by a reverse proxy that strips it, for example /gridpulse (default: GRIDPULSE_BASE_PATH, empty for the root)")
 	healthcheck := flag.Bool("healthcheck", false, "ask a running API on -addr whether it is healthy, then exit 0 or 1 (for container health checks)")
 	flag.Parse()
 	if *healthcheck {
@@ -35,13 +36,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, log, *addr, *grace); err != nil {
+	if err := run(ctx, log, *addr, *grace, *basePath); err != nil {
 		log.Error("api failed", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, log *slog.Logger, addr string, grace time.Duration) error {
+func run(ctx context.Context, log *slog.Logger, addr string, grace time.Duration, basePath string) error {
 	pool, err := db.ConnectReadOnly(ctx, config.Load().PostgresDSN)
 	if err != nil {
 		return err
@@ -49,7 +50,7 @@ func run(ctx context.Context, log *slog.Logger, addr string, grace time.Duration
 	defer pool.Close()
 
 	service := api.New(pool, log)
-	site, err := web.New(service, log)
+	site, err := web.New(service, log, basePath)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,39 @@
+# Server override: layered on docker-compose.yml through COMPOSE_FILE in .env.
+#
+# - Publishes nothing except the API, and only on the loopback address, so the
+#   reverse proxy is the single way in. Postgres and the object store are
+#   reachable only from inside the Compose network.
+# - Caps CPU and memory so a shared machine (other containers, long
+#   simulations) is never starved. Raise the limits if the box has room.
+# - Restarts everything after a reboot.
+#
+# Needs Docker Compose v2.24 or newer for the !reset / !override tags.
+name: gridpulse
+
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+    cpus: "1.0"
+    mem_limit: 1g
+    cpu_shares: 256
+  objectstore:
+    ports: !reset []
+    restart: unless-stopped
+    cpus: "0.5"
+    mem_limit: 512m
+    cpu_shares: 128
+  scheduler:
+    restart: unless-stopped
+    cpus: "1.0"
+    mem_limit: 768m
+    cpu_shares: 256
+  api:
+    ports: !override
+      - "127.0.0.1:8020:8080"
+    environment:
+      GRIDPULSE_BASE_PATH: /gridpulse
+    restart: unless-stopped
+    cpus: "0.5"
+    mem_limit: 384m
+    cpu_shares: 256

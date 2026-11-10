@@ -40,7 +40,7 @@
 
   <section class="card wide">
     <h2>{{.T.recon_title}}</h2>
-    <div class="plot"><canvas data-chart="recon" data-url="/api/v1/reconciliation" data-ylabel="{{.T.recon_y}}" role="img" aria-label="{{.T.recon_title}}"></canvas></div>
+    <div class="plot"><canvas data-chart="recon" data-url="{{.Base}}/api/v1/reconciliation" data-ylabel="{{.T.recon_y}}" role="img" aria-label="{{.T.recon_title}}"></canvas></div>
     <p class="empty" hidden>{{.T.no_data}}</p>
     <p class="note">{{.T.recon_note}}</p>
   </section>
@@ -48,6 +48,6 @@
 {{end}}
 
 {{define "scripts"}}
-<script src="/static/chart.umd.min.js"></script>
-<script src="/static/app.js"></script>
+<script src="{{.Base}}/static/chart.umd.min.js"></script>
+<script src="{{.Base}}/static/app.js"></script>
 {{end}}

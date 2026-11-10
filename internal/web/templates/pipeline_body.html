@@ -1,5 +1,5 @@
 {{define "pipeline_body"}}
-<div id="pl" hx-get="/ui/pipeline" hx-trigger="every 30s" hx-swap="outerHTML">
+<div id="pl" hx-get="{{.Base}}/ui/pipeline" hx-trigger="every 30s" hx-swap="outerHTML">
 <p class="note">{{.T.pl_generated}} {{stampTime .H.GeneratedAt}}</p>
 
 <div class="cards">

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 func newWeb(t *testing.T) http.Handler {
 	t.Helper()
-	w, err := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	w, err := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +97,7 @@ func TestSecurityHeadersAndFallThrough(t *testing.T) {
 }
 
 func TestPipelineBodyRendersAllStates(t *testing.T) {
-	w, err := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	w, err := New(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,5 +133,53 @@ func TestDur(t *testing.T) {
 		if got := dur(in); got != want {
 			t.Errorf("dur(%d) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestBasePathPrefixesEveryLink(t *testing.T) {
+	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
+	for _, bad := range []string{"gridpulse", "/gridpulse/", "/a b", "/a?x=1", "//x"} {
+		if _, err := New(nil, quiet, bad); err == nil {
+			t.Errorf("base path %q must be rejected", bad)
+		}
+	}
+	w, err := New(nil, quiet, "/gridpulse")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := w.Handler(http.NotFoundHandler())
+	rec := get(h, "/?p=ON&days=7&lang=fr")
+	if c := rec.Header().Get("Set-Cookie"); !strings.Contains(c, "Path=/gridpulse/") {
+		t.Errorf("language cookie = %q, want it scoped to the base path", c)
+	}
+	rooted := regexp.MustCompile(`(?:href|src|data-url|hx-get)="(/[^"]*)"`)
+	check := func(page, body string) {
+		t.Helper()
+		links := rooted.FindAllStringSubmatch(body, -1)
+		if len(links) < 5 {
+			t.Fatalf("%s: found only %d rooted links, the pattern is probably wrong", page, len(links))
+		}
+		for _, m := range links {
+			if !strings.HasPrefix(m[1], "/gridpulse/") {
+				t.Errorf("%s: link %q is not under /gridpulse/", page, m[1])
+			}
+		}
+	}
+	check("dashboard", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `data-base="/gridpulse"`) {
+		t.Error("the page must tell the script its base path")
+	}
+	// The pipeline fragment must keep polling the prefixed address.
+	var buf bytes.Buffer
+	view := pipelineView{base: base{Base: "/gridpulse", Lang: "en", T: text["en"]}}
+	if err := w.pages["pipeline"].ExecuteTemplate(&buf, "pipeline_body", view); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), `hx-get="/gridpulse/ui/pipeline"`) {
+		t.Errorf("pipeline fragment polls the wrong address:\n%s", buf.String()[:200])
+	}
+	// Without a base path nothing changes.
+	if body := get(newWeb(t), "/").Body.String(); !strings.Contains(body, `href="/static/style.css"`) {
+		t.Error("with no base path the links stay at the root")
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	stdstrings "strings"
 	"time"
 
@@ -23,14 +24,24 @@ var assets embed.FS
 
 // Web renders the pages. Anything it does not serve goes to the next handler (the API).
 type Web struct {
-	api   *api.API
-	log   *slog.Logger
-	pages map[string]*template.Template
+	api    *api.API
+	log    *slog.Logger
+	prefix string // "" or "/gridpulse": where a reverse proxy mounts the site
+	pages  map[string]*template.Template
 }
 
-func New(a *api.API, log *slog.Logger) (*Web, error) {
+var basePathPattern = regexp.MustCompile(`^/[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)*$`)
+
+// New builds the pages. basePath is the URL prefix a reverse proxy serves the
+// site under ("" when it is served at the root). The proxy removes the prefix
+// before the request arrives, so the routes stay at the root; the prefix is
+// only added to the links, scripts and API addresses the pages produce.
+func New(a *api.API, log *slog.Logger, basePath string) (*Web, error) {
+	if basePath != "" && !basePathPattern.MatchString(basePath) {
+		return nil, fmt.Errorf("web: base path %q must be empty or start with / and have no trailing slash", basePath)
+	}
 	funcs := template.FuncMap{"stamp": stamp, "stampTime": stampTime, "dur": dur}
-	w := &Web{api: a, log: log, pages: map[string]*template.Template{}}
+	w := &Web{api: a, log: log, prefix: basePath, pages: map[string]*template.Template{}}
 	for _, p := range []string{"dashboard", "pipeline"} {
 		t, err := template.New(p).Funcs(funcs).Option("missingkey=error").
 			ParseFS(assets, "templates/layout.html", "templates/"+p+".html", "templates/pipeline_body.html")
@@ -71,6 +82,7 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 type base struct {
+	Base      string // URL prefix for every link the page produces
 	Lang      string
 	SwitchURL string
 	SwitchTo  string
@@ -83,7 +95,7 @@ func (w *Web) base(rw http.ResponseWriter, r *http.Request, active string) base 
 	switch q := r.URL.Query().Get("lang"); {
 	case q == "en" || q == "fr":
 		lang = q
-		http.SetCookie(rw, &http.Cookie{Name: "lang", Value: q, Path: "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
+		http.SetCookie(rw, &http.Cookie{Name: "lang", Value: q, Path: w.prefix + "/", MaxAge: 365 * 24 * 3600, SameSite: http.SameSiteLaxMode})
 	default:
 		if c, err := r.Cookie("lang"); err == nil && (c.Value == "en" || c.Value == "fr") {
 			lang = c.Value
@@ -94,7 +106,7 @@ func (w *Web) base(rw http.ResponseWriter, r *http.Request, active string) base 
 	other := map[string]string{"en": "fr", "fr": "en"}[lang]
 	q := r.URL.Query()
 	q.Set("lang", other)
-	return base{Lang: lang, SwitchTo: other, SwitchURL: r.URL.Path + "?" + q.Encode(), T: text[lang], Active: active}
+	return base{Base: w.prefix, Lang: lang, SwitchTo: other, SwitchURL: w.prefix + r.URL.Path + "?" + q.Encode(), T: text[lang], Active: active}
 }
 
 func (w *Web) render(rw http.ResponseWriter, page, name string, data any) {
@@ -149,17 +161,17 @@ func (w *Web) dashboard(rw http.ResponseWriter, r *http.Request) {
 
 	v := dashboardView{
 		base: b, Province: prov, ProvinceName: provinceNames[b.Lang][prov],
-		LoadURL: "/api/v1/load?" + span, GenURL: "/api/v1/generation?" + span,
-		PriceURL: "/api/v1/prices?" + span, ScatterURL: "/api/v1/load-weather?" + span,
+		LoadURL: w.prefix + "/api/v1/load?" + span, GenURL: w.prefix + "/api/v1/generation?" + span,
+		PriceURL: w.prefix + "/api/v1/prices?" + span, ScatterURL: w.prefix + "/api/v1/load-weather?" + span,
 		HasGen: prov == "ON", HasPrice: prov != "QC",
 	}
 	for _, code := range []string{"QC", "ON", "AB"} {
 		v.Provinces = append(v.Provinces, choice{Value: code, Label: provinceNames[b.Lang][code], Selected: code == prov,
-			URL: "/?" + url.Values{"p": {code}, "days": {fmt.Sprint(days)}}.Encode()})
+			URL: w.prefix + "/?" + url.Values{"p": {code}, "days": {fmt.Sprint(days)}}.Encode()})
 	}
 	for _, d := range rangeDays {
 		v.Ranges = append(v.Ranges, choice{Value: fmt.Sprint(d), Label: fmt.Sprintf(b.T["last_n_days"], d), Selected: d == days,
-			URL: "/?" + url.Values{"p": {prov}, "days": {fmt.Sprint(d)}}.Encode()})
+			URL: w.prefix + "/?" + url.Values{"p": {prov}, "days": {fmt.Sprint(d)}}.Encode()})
 	}
 	w.render(rw, "dashboard", "layout", v)
 }
