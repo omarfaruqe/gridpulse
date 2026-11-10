@@ -60,6 +60,9 @@ func TestDashboardRendersInBothLanguages(t *testing.T) {
 	if !strings.Contains(get(h, "/?p=QC").Body.String(), "Quebec has no hourly market price") {
 		t.Error("Quebec page should explain the missing price series")
 	}
+	if on, ab := get(h, "/?p=ON").Body.String(), get(h, "/?p=AB").Body.String(); !strings.Contains(on, "twelve 5-minute prices") || strings.Contains(ab, "twelve 5-minute prices") {
+		t.Error("only the Ontario price chart explains the day-ahead and real-time lines")
+	}
 	if !strings.Contains(get(h, "/?p=ON").Body.String(), "data-chart=\"generation\"") {
 		t.Error("Ontario page should chart generation")
 	}

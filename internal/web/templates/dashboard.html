@@ -28,6 +28,7 @@
     {{if .HasPrice}}
     <div class="plot"><canvas data-chart="price" data-url="{{.PriceURL}}" data-ylabel="{{.T.price_y}}" role="img" aria-label="{{.T.price_title}}"></canvas></div>
     <p class="empty" hidden>{{.T.no_data}}</p>
+    {{if eq .Province "ON"}}<p class="note">{{.T.price_note}}</p>{{end}}
     {{else}}<p class="note">{{.T.price_none}}</p>{{end}}
   </section>
 

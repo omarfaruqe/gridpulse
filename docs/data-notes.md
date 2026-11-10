@@ -39,6 +39,7 @@ The limits are first estimates. Every check records each series' lag in `ops.fre
 | load_AB, price_AB | 6 h, 12 h | AESO hourly API |
 | load_ON | 36 h | IESO regenerates the yearly Demand file once a day, around 07:30 Eastern |
 | price_ON | 12 h | Day-ahead prices are published ahead of time, so the lag can be negative |
+| price_rt_ON | 3 h | The hourly real-time value appears once all 12 five-minute prices are out, so the newest complete hour is 1 to 2 hours old |
 | generation_ON | 30 h | IESO generator output reports |
 | weather (all) | 48 h | The ECCC archive trails real time by about a day |
 
@@ -78,6 +79,18 @@ The IESO hourly report covers generators of 20 MW or more registered with the IE
 | 2026 (8 months) | 0.48 | 1.63 | 0.292 |
 
 What this supports: the pipeline's solar totals are close to IESO's own published figures (slightly lower, as expected from the 20 MW threshold), and the ratio is steady at 0.29 to 0.30 in every year, which fits a fixed share of solar that the report does not cover better than it fits a loading error. What is not established: how Statistics Canada defines solar generation in this table, so it is not confirmed that the remaining share is embedded solar. The reconciliation keeps comparing solar against its own baseline for that reason.
+
+## Prices
+
+Ontario has two price series for the same hour, kept apart by `price_kind`; Alberta has one.
+
+- `day_ahead_zonal`: IESO's day-ahead hourly Ontario zonal energy price, set the day before.
+- `real_time_zonal_avg`: the simple mean of the twelve 5-minute prices of the hour in IESO's "Real-time 5-min Ontario Zonal Energy Price" report. It exists only for hours with all twelve intervals published. It is **not** an official hourly price; how IESO itself derives hourly real-time figures was not established.
+- `pool_price`: AESO's settled hourly pool price (Alberta).
+
+The real-time report is one file per delivery hour, rewritten as each interval is published (one snapshot every five minutes), and IESO keeps about 90 days of them. The plain hourly file matched its last snapshot in the one hour compared, and the loader keeps the newest snapshot of each interval. Intervals not yet published are empty in the file and are never stored as zero. The report names its fields `LmpCap`, `LossPriceCap` and `CongPriceCap` and carries a `Flag` (for example `DSO-RD`); they are stored as published, and what "Cap" and the flag values mean is not established here.
+
+History starts on 2026-08-12, the oldest day the 90-day window still held when it was fetched. The scheduler re-reads the last 48 hours every hour; a longer outage needs an extractor backfill, and the test `no_missing_hours_price_realtime` reports any gap.
 
 ## Known gaps and limits
 

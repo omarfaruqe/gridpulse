@@ -59,6 +59,8 @@ All times are UTC. Each job has its own lock (a job never overlaps itself), a ti
 | ieso-demand | minute 20, hourly |
 | ieso-generation | minute 25, hourly |
 | ieso-price | minute 30, every 2 hours |
+| ieso-rtprice | every 5 minutes; re-reads the last 3 delivery hours of the real-time price |
+| ieso-rtprice-catchup | minute 17, hourly; re-reads the last 48 hours so a gap (for example after the machine slept) closes by itself |
 | ieso-fuel | minute 35, hourly |
 | eccc | minute 40, every 6 hours |
 | statcan | 12:15 daily |
@@ -76,7 +78,7 @@ Read-only JSON under `/api/v1`, served from a Postgres connection with `default_
 |---|---|
 | `/health` | `{"status":"ok"}` when the database answers |
 | `/provinces`, `/fuels` | Reference data in English and French |
-| `/load`, `/prices`, `/weather`, `/load-weather` | Hourly series for `province` = `QC`, `ON` or `AB` |
+| `/load`, `/prices`, `/weather`, `/load-weather` | Hourly series for `province` = `QC`, `ON` or `AB`. `/prices` returns one row per hour and `price_kind` (Ontario has a day-ahead and a real-time kind) |
 | `/generation` | Hourly generation by fuel (Ontario only) |
 | `/reconciliation` | Monthly IESO ÷ StatCan ratios, optional `group` and `status` |
 | `/pipeline` | Freshness, latest job runs and latest test results |

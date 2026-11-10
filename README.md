@@ -7,7 +7,7 @@ A data pipeline for Canadian electricity. It collects hourly demand, generation 
 What it shows:
 
 - **Ingestion** that can be repeated safely: raw files go to object storage and are never modified.
-- **A warehouse with tests**: 14 SQL data quality tests run after every transform, and the results are kept and shown on the health page.
+- **A warehouse with tests**: 15 SQL data quality tests run after every transform, and the results are kept and shown on the health page.
 - **Reconciliation** of Ontario generation against Statistics Canada, with documented findings, including the ones that are not explained yet (see [docs/data-notes.md](docs/data-notes.md)).
 - **Operations**: a scheduler with locks, timeouts and recorded runs; freshness limits per series; CI with integration tests; Docker Compose.
 
@@ -55,6 +55,7 @@ go build -o bin/extractor ./cmd/extractor
 ./bin/extractor -source hydroquebec
 ./bin/extractor -source ieso -report Demand -from-year 2025 -to-year 2026
 ./bin/extractor -source ieso -report GenOutputbyFuelHourly -from-year 2022 -to-year 2026
+./bin/extractor -timeout 20m -source ieso -report RealtimeOntarioZonalPrice -from 2026-08-12 -to 2026-11-09   # IESO keeps about 90 days
 ./bin/extractor -source aeso -report PoolPrice -from 2026-11-01 -to 2026-11-07
 ./bin/extractor -source eccc -from 2026-11-05 -to 2026-11-06
 ./bin/extractor -source statcan
@@ -68,12 +69,12 @@ Settings come from environment variables whose defaults match `docker-compose.ym
 | Source | Series |
 |---|---|
 | Hydro-Québec | Real-time demand (15-minute slots, aggregated to hours) |
-| IESO | Generator output by fuel, hourly demand, day-ahead zonal price |
+| IESO | Generator output by fuel, hourly demand, day-ahead zonal price, real-time 5-minute zonal price |
 | AESO | Pool price, Alberta internal load |
 | ECCC | Hourly weather from six stations mapped to the three regions |
 | Statistics Canada | Monthly generation by type, table 25-10-0015-01 (used for reconciliation) |
 
-Not included yet: IESO real-time 5-minute prices, refined station weights, Canada Energy Regulator context data. Hydro-Québec open data is CC BY-NC 4.0; see [docs/data-notes.md](docs/data-notes.md) for the licence note.
+Not included yet: refined station weights, Canada Energy Regulator context data. Hydro-Québec open data is CC BY-NC 4.0; see [docs/data-notes.md](docs/data-notes.md) for the licence note.
 
 ## Licence
 

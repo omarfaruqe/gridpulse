@@ -7,7 +7,7 @@ Un pipeline de données sur l'électricité canadienne. Il collecte les données
 Ce que le projet démontre :
 
 - **Une ingestion répétable sans risque** : les fichiers bruts vont dans un stockage objet et ne sont jamais modifiés.
-- **Un entrepôt testé** : 14 tests SQL de qualité des données s'exécutent après chaque transformation; les résultats sont conservés et affichés sur la page de santé.
+- **Un entrepôt testé** : 15 tests SQL de qualité des données s'exécutent après chaque transformation; les résultats sont conservés et affichés sur la page de santé.
 - **Une réconciliation** de la production ontarienne avec Statistique Canada, avec des constats documentés, y compris ceux qui ne sont pas encore expliqués (voir [docs/data-notes.md](docs/data-notes.md), en anglais).
 - **L'exploitation** : un ordonnanceur avec verrous, délais maximaux et exécutions enregistrées; des limites de fraîcheur par série; une intégration continue avec tests d'intégration; Docker Compose.
 
@@ -55,6 +55,7 @@ go build -o bin/extractor ./cmd/extractor
 ./bin/extractor -source hydroquebec
 ./bin/extractor -source ieso -report Demand -from-year 2025 -to-year 2026
 ./bin/extractor -source ieso -report GenOutputbyFuelHourly -from-year 2022 -to-year 2026
+./bin/extractor -timeout 20m -source ieso -report RealtimeOntarioZonalPrice -from 2026-08-12 -to 2026-11-09   # l'IESO garde environ 90 jours
 ./bin/extractor -source aeso -report PoolPrice -from 2026-11-01 -to 2026-11-07
 ./bin/extractor -source eccc -from 2026-11-05 -to 2026-11-06
 ./bin/extractor -source statcan
@@ -68,12 +69,12 @@ La configuration passe par des variables d'environnement dont les valeurs par d�
 | Source | Séries |
 |---|---|
 | Hydro-Québec | Demande en temps réel (intervalles de 15 minutes, agrégés à l'heure) |
-| IESO | Production par filière, demande horaire, prix zonal du lendemain |
+| IESO | Production par filière, demande horaire, prix zonal du lendemain, prix zonal en temps réel (5 minutes) |
 | AESO | Prix du pool, charge interne de l'Alberta |
 | ECCC | Météo horaire de six stations associées aux trois régions |
 | Statistique Canada | Production mensuelle par type, tableau 25-10-0015-01 (sert à la réconciliation) |
 
-Pas encore inclus : les prix en temps réel de l'IESO (5 minutes), des pondérations de stations affinées, les données de contexte de la Régie de l'énergie du Canada. Les données ouvertes d'Hydro-Québec sont sous licence CC BY-NC 4.0; voir [docs/data-notes.md](docs/data-notes.md).
+Pas encore inclus : des pondérations de stations affinées, les données de contexte de la Régie de l'énergie du Canada. Les données ouvertes d'Hydro-Québec sont sous licence CC BY-NC 4.0; voir [docs/data-notes.md](docs/data-notes.md).
 
 ## Licence
 

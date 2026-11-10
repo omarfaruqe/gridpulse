@@ -43,6 +43,13 @@
     fr: { Combustible: 'Combustibles', Hydro: 'Hydroélectricité', Nuclear: 'Nucléaire', Solar: 'Solaire', Total: 'Total', Wind: 'Éolien' },
   };
 
+  // A price series has one line per price kind (Ontario has two, Alberta one).
+  const priceKinds = {
+    en: { day_ahead_zonal: 'Day-ahead zonal price', real_time_zonal_avg: 'Real-time zonal price (hourly mean)', pool_price: 'Pool price' },
+    fr: { day_ahead_zonal: 'Prix zonal du lendemain', real_time_zonal_avg: 'Prix zonal en temps réel (moyenne horaire)', pool_price: 'Prix du pool' },
+  };
+  const priceColour = { day_ahead_zonal: 1, real_time_zonal_avg: 0, pool_price: 1 };
+
   const builders = {
     load(rows, el) {
       return {
@@ -56,13 +63,23 @@
     },
 
     price(rows, el) {
+      const hours = [...new Set(rows.map((r) => r.hour_utc))].sort();
+      const kinds = [...new Set(rows.map((r) => r.price_kind))].sort();
+      const datasets = kinds.map((kind, i) => {
+        const byHour = new Map(rows.filter((r) => r.price_kind === kind).map((r) => [r.hour_utc, r.price_cad_mwh]));
+        const c = colour(priceColour[kind] ?? i);
+        return {
+          label: priceKinds[lang][kind] || kind, data: hours.map((h) => byHour.get(h) ?? null), // null stays a gap, never 0
+          borderColor: c, backgroundColor: c, borderWidth: 2, pointRadius: 0, spanGaps: false, stepped: true,
+        };
+      });
       return {
         type: 'line',
-        data: { labels: rows.map((r) => hourLabel(r.hour_utc)), datasets: [{
-          label: el.dataset.ylabel, data: rows.map((r) => r.price_cad_mwh),
-          borderColor: colour(1), borderWidth: 2, pointRadius: 0, spanGaps: false, stepped: true,
-        }] },
-        options: base({ scales: axes(el.dataset.ylabel) }),
+        data: { labels: hours.map(hourLabel), datasets },
+        options: base({
+          scales: axes(el.dataset.ylabel),
+          plugins: { legend: { display: kinds.length > 1, position: 'bottom' }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmt.format(c.parsed.y)}` } } },
+        }),
       };
     },
 
