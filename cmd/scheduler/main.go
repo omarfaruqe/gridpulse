@@ -67,12 +67,13 @@ func run(ctx context.Context, log *slog.Logger, list bool, once string, check, r
 		return err
 	}
 	p := pipeline.New(pipeline.Config{
-		Store:     store,
-		Loader:    &loader.Loader{Pool: pool, Bronze: store},
-		Transform: &transform.Runner{Pool: pool, Files: sqlfiles.FS},
-		Pool:      pool,
-		AESOKey:   cfg.AESOAPIKey,
-		Log:       log,
+		Store:        store,
+		Loader:       &loader.Loader{Pool: pool, Bronze: store},
+		Transform:    &transform.Runner{Pool: pool, Files: sqlfiles.FS},
+		Pool:         pool,
+		AESOKey:      cfg.AESOAPIKey,
+		DisabledJobs: cfg.DisabledJobs,
+		Log:          log,
 	})
 	jobs, err := p.Jobs()
 	if err != nil {

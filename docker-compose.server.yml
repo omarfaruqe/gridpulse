@@ -24,6 +24,12 @@ services:
     mem_limit: 512m
     cpu_shares: 128
   scheduler:
+    # This host's resolver cannot find some Canadian names (ieso.ca), so the
+    # collectors use public resolvers instead.
+    dns: [1.1.1.1, 8.8.8.8]
+    environment:
+      # Hydro-Québec refuses connections from outside Canada.
+      GRIDPULSE_DISABLE_JOBS: hydroquebec
     restart: unless-stopped
     cpus: "1.0"
     mem_limit: 768m

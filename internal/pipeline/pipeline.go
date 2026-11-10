@@ -34,8 +34,11 @@ type Config struct {
 	Transform *transform.Runner
 	Pool      *pgxpool.Pool
 	AESOKey   string // empty: the AESO jobs are left out
-	Log       *slog.Logger
-	Now       func() time.Time // defaults to time.Now
+	// DisabledJobs lists jobs to leave out by name, for a host that cannot
+	// reach one source (Hydro-Québec refuses connections from outside Canada).
+	DisabledJobs []string
+	Log          *slog.Logger
+	Now          func() time.Time // defaults to time.Now
 }
 
 // Pipeline is the configured set of jobs.
@@ -70,8 +73,37 @@ func days(now time.Time, loc *time.Location, offsets ...int) []time.Time {
 	return out
 }
 
-// Jobs returns the schedule. Cron expressions are in UTC.
+// Jobs returns the schedule without the jobs named in DisabledJobs. An unknown
+// name is an error, so a typo cannot silently leave a job running.
 func (p *Pipeline) Jobs() ([]scheduler.Job, error) {
+	all, err := p.allJobs()
+	if err != nil {
+		return nil, err
+	}
+	if len(p.DisabledJobs) == 0 {
+		return all, nil
+	}
+	off := map[string]bool{}
+	for _, n := range p.DisabledJobs {
+		off[n] = true
+	}
+	var jobs []scheduler.Job
+	for _, j := range all {
+		if off[j.Name] {
+			delete(off, j.Name)
+			p.Log.Warn("job disabled by configuration", "job", j.Name)
+			continue
+		}
+		jobs = append(jobs, j)
+	}
+	for n := range off {
+		return nil, fmt.Errorf("pipeline: GRIDPULSE_DISABLE_JOBS names unknown job %q", n)
+	}
+	return jobs, nil
+}
+
+// allJobs returns the full schedule. Cron expressions are in UTC.
+func (p *Pipeline) allJobs() ([]scheduler.Job, error) {
 	hq := hydroquebec.New(p.Store)
 	io := ieso.New(p.Store)
 	ec, err := eccc.New(p.Store)

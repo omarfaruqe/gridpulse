@@ -60,3 +60,26 @@ func TestTransformSkippedWhenNothingChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDisabledJobsAreLeftOut(t *testing.T) {
+	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
+	full, err := New(Config{Log: quiet}).Jobs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := New(Config{Log: quiet, DisabledJobs: []string{"hydroquebec"}}).Jobs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != len(full)-1 {
+		t.Fatalf("got %d jobs, want %d", len(jobs), len(full)-1)
+	}
+	for _, j := range jobs {
+		if j.Name == "hydroquebec" {
+			t.Error("the hydroquebec job is still scheduled")
+		}
+	}
+	if _, err := New(Config{Log: quiet, DisabledJobs: []string{"hydroquebc"}}).Jobs(); err == nil {
+		t.Error("a misspelled job name must be an error")
+	}
+}

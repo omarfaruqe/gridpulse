@@ -36,3 +36,7 @@ handle_path /gridpulse/* {
 - HTTP only until a domain and certificate exist.
 - The API is read-only but has no authentication or rate limiting. Range queries are capped at 92 days with a 20 second timeout.
 - Back up `pgdata/` and `.env`; the object store can be rebuilt from the sources only while IESO still holds the files.
+
+## Hosts outside Canada
+
+Hydro-Québec redirects every request from outside Canada to an "access restricted" page, so its collector cannot run on a server abroad. Set `GRIDPULSE_DISABLE_JOBS=hydroquebec` (the server override does this) and the scheduler leaves the job out; the Quebec series then goes stale in the pipeline-health view, which is the honest state. Some hosts also cannot resolve `ieso.ca` through their own resolver; the override gives the scheduler public resolvers (`dns:`) for that.

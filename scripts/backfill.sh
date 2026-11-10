@@ -11,7 +11,11 @@ today=$(date -u +%F)
 ago()  { date -u -d "$1 days ago" +%F; }
 year=$(date -u +%Y)
 
-echo "== Hydro-Québec";            x -source hydroquebec
+if docker compose config | grep -q 'GRIDPULSE_DISABLE_JOBS: .*hydroquebec'; then
+  echo "== Hydro-Québec skipped (disabled for this host)"
+else
+  echo "== Hydro-Québec"; x -source hydroquebec
+fi
 echo "== IESO demand";             x -source ieso -report Demand -from-year 2022 -to-year "$year"
 echo "== IESO generation by fuel"; x -timeout 20m -source ieso -report GenOutputbyFuelHourly -from-year 2022 -to-year "$year"
 echo "== IESO capability";         x -timeout 20m -source ieso -report GenOutputCapability -from "$(ago 60)" -to "$today"
